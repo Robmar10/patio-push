@@ -110,19 +110,20 @@
   - chama na doca;
   - passa o caminhão para a outra equipe;
   - libera a saída.
-- **Motorista:** lê o QR, toca em **ATIVAR ALERTAS** e depois em **PERMITIR**. Depois disso, **pode bloquear o celular**.
+- **Motorista:** lê o QR do **cartaz**, digita a placa e o final do celular, toca em **ATIVAR ALERTAS** e depois em **PERMITIR**. Depois disso, **pode bloquear o celular**.
 
 23. No PC da portaria, abra `https://SEU-NOME.onrender.com`, entre com seu nome e o PIN e salve nos **favoritos**.
-24. **QR Code — dois jeitos:**
-    - **QR individual (recomendado):** ao clicar em **LANÇAR NA FILA E GERAR QR**, aparece o QR do motorista e a **checagem do celular ao vivo**:
+24. **QR Code: um só, o do cartaz da portaria.**
+    - Imprima uma vez: **Cartaz QR** → **Imprimir cartaz**, e fixe na guarita.
+    - Ao clicar em **LANÇAR NA FILA**, a janela mostra o que o motorista digita no cartaz (**placa + final do celular**) e a **checagem do celular ao vivo**:
       1. Espere ✔ **página aberta** e ✔ **notificações permitidas**.
       2. Peça ao motorista para **bloquear o celular** e clique em **TESTAR AVISO NO CELULAR**.
-      3. Quando aparecer **TUDO CERTO**, libere o motorista.
-    - **Cartaz fixo:** clique em **Cartaz QR** → **Imprimir cartaz**. O motorista digita a placa e os 4 últimos números do celular.
+      3. Quando aparecer **TUDO CERTO**, libere o motorista. Se aparecer **OK COM ALARME SONORO**, oriente: *não fechar a página e deixar o volume de mídia alto*.
+    - Para ver essa janela de novo, use o botão **Celular** na linha do caminhão.
 25. No PC/TV do **Recebimento**, abra `https://SEU-NOME.onrender.com/equipe`, entre com o PIN e toque em **RECEBIMENTO**. Faça o mesmo na **Expedição**. Deixe essas telas abertas e com som.
 26. **Teste com celular real:**
     1. **Portaria:** lance um **Recebimento** com o seu celular e marque **Operação dupla**. A tela do Recebimento pisca → **CIENTE**.
-    2. **Celular:** leia o QR → **ATIVAR ALERTAS** → **Permitir**. O quadro tem que ficar **verde**.
+    2. **Celular:** leia o QR do **cartaz** → placa + final do celular → **ATIVAR ALERTAS** → **Permitir**. O quadro tem que ficar **verde**.
        - Se ficar **vermelho**, siga os passos que aparecem nele. No Samsung: *Configurações → Aplicativos → Chrome → Notificações* ligado e *Bateria → Sem restrições*.
     3. **Portaria:** **TESTAR AVISO NO CELULAR** com o celular **bloqueado**. Deve aparecer **TUDO CERTO**.
     4. **Recebimento:** **Recado** → **Buscar nota fiscal** → **ESCRITÓRIO EXPEDIÇÃO**. O celular bloqueado vibra. Toque em **✅ ESTOU INDO** na notificação.

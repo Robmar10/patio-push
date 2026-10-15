@@ -137,3 +137,8 @@ label.chk input { width: 18px; height: 18px; margin: 0; }
 
 .cartaz-id { background: #fff6e0; border: 1px solid #f0d08a; border-radius: 8px; padding: 10px 12px; font-size: 14px; margin: 6px 0; line-height: 1.6; }
 .cartaz-id .plate { font-size: 17px; }
+
+.authbox { display: flex; flex-direction: column; gap: 10px; }
+.cartaz-id.big { font-size: 16px; }
+.cartaz-id.big .plate { font-size: 22px; }
+.qrok.warn { background: #fff6e0; color: #8a5a00; }

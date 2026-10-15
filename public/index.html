@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pátio Push · Portaria</title>
   <link rel="icon" href="/m/icon.svg">
-  <link rel="stylesheet" href="/style.css?v=v3d">
+  <link rel="stylesheet" href="/style.css?v=v3e">
 </head>
 <body>
   <section id="login" class="login" hidden>
@@ -52,9 +52,9 @@
           <label>Observação<input name="note" maxlength="200"></label>
           <label class="chk"><input type="checkbox" name="next_op" value="1"> <span id="nextLbl">Operação dupla (Recebimento + Expedição)</span></label>
           <p id="arrErr" class="err"></p>
-          <button class="btn primary block">LANÇAR NA FILA E GERAR QR</button>
+          <button class="btn primary block">LANÇAR NA FILA</button>
         </form>
-        <p class="hint">Ao lançar, aparece o QR Code do motorista com a checagem do celular (página aberta, notificações, teste). Libere o motorista para o pátio com as 3 marcas verdes. A equipe é avisada e chama pela tela dela.</p>
+        <p class="hint">Ao lançar, aparece o que o motorista digita no CARTAZ (placa + final do celular) e a checagem do celular dele. Libere o motorista para o pátio com as marcas verdes. A equipe é avisada e chama pela tela dela.</p>
       </section>
 
       <!-- DASHBOARD -->
@@ -83,6 +83,6 @@
 
   <div id="modal" class="modal" hidden><div class="modal-card"><div class="mh"><h3 id="mTitle"></h3><button class="x" data-close>×</button></div><div id="mBody" class="mb"></div><div id="mFoot" class="mf"></div></div></div>
   <div id="toasts" class="toasts"></div>
-  <script src="/portaria.js?v=v3d"></script>
+  <script src="/portaria.js?v=v3e"></script>
 </body>
 </html>

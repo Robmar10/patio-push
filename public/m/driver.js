@@ -140,14 +140,74 @@
   }
   function b64ToU8(b) { const p = '='.repeat((4 - (b.length % 4)) % 4); const s = atob((b + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(s, (c) => c.charCodeAt(0)); }
 
+  // ---------- ALARME SONORO EM SEGUNDO PLANO (não depende da permissão de notificação) ----------
+  // O Chrome do Android não congela abas que estão tocando áudio. A página toca um som contínuo INAUDÍVEL
+  // (25 Hz, volume baixíssimo): a aba continua viva e conectada com o celular bloqueado ou com outro app aberto.
+  // Na chamada, um segundo áudio (alarme alto, que já está tocando sem som) é desmutado — não precisa de toque
+  // nem de permissão. O cartão de mídia da tela de bloqueio mostra o que fazer (ex.: DESCARREGAR NA DOCA 04).
+  const SOUND = { keep: null, alarm: null, on: false, err: '' };
+  function wavUrl(seconds, rate, fn) {
+    const n = Math.floor(seconds * rate); const buf = new ArrayBuffer(44 + n * 2); const d = new DataView(buf);
+    const w = (o, t) => { for (let i = 0; i < t.length; i++) d.setUint8(o + i, t.charCodeAt(i)); };
+    w(0, 'RIFF'); d.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); d.setUint32(16, 16, true); d.setUint16(20, 1, true);
+    d.setUint16(22, 1, true); d.setUint32(24, rate, true); d.setUint32(28, rate * 2, true); d.setUint16(32, 2, true); d.setUint16(34, 16, true);
+    w(36, 'data'); d.setUint32(40, n * 2, true);
+    for (let i = 0; i < n; i++) d.setInt16(44 + i * 2, Math.max(-1, Math.min(1, fn(i / rate))) * 32767, true);
+    return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+  }
+  // alarme: bipes fortes alternando 1.150/880 Hz (0,22 s ligado / 0,12 s desligado), ciclo de 2,4 s
+  const alarmWave = (t) => { const c = t % 0.34; if (c > 0.22) return 0; const f = Math.floor(t / 0.34) % 2 ? 880 : 1150; return 0.85 * Math.sign(Math.sin(2 * Math.PI * f * t)); };
+  function setMedia(title, artist) {
+    try {
+      if (!('mediaSession' in navigator)) return;
+      navigator.mediaSession.metadata = new MediaMetadata({ title, artist: artist || 'Pátio Push — chamada do motorista', album: 'Portaria', artwork: [{ src: '/m/icon.svg', sizes: '512x512', type: 'image/svg+xml' }] });
+      // Pausar pelo cartão de mídia desligaria o alarme: ignora (o motorista responde pela página).
+      ['pause', 'stop'].forEach((a) => { try { navigator.mediaSession.setActionHandler(a, () => { SOUND.keep && SOUND.keep.play().catch(() => {}); }); } catch { /* */ } });
+    } catch { /* */ }
+  }
+  // Precisa ser chamado dentro de um toque do motorista (regra de áudio dos navegadores).
+  function startSoundMode() {
+    if (SOUND.on || SOUND.keep) return;
+    try {
+      SOUND.keep = new Audio(wavUrl(2, 8000, (t) => 0.004 * Math.sin(2 * Math.PI * 25 * t)));
+      SOUND.keep.loop = true;
+      SOUND.alarm = new Audio(wavUrl(2.4, 16000, alarmWave));
+      SOUND.alarm.loop = true; SOUND.alarm.muted = true;
+      ['keep', 'alarm'].forEach((k) => SOUND[k].setAttribute('playsinline', ''));
+      Promise.all([SOUND.keep.play(), SOUND.alarm.play()])
+        .then(() => {
+          SOUND.on = true; SOUND.err = '';
+          if (S.alarmKey) soundAlarm(true, $('#headline').textContent, $('#subline').textContent); // já havia chamada pendente
+          else setMedia('Aguardando chamada', 'Pátio Push — não feche esta aba');
+          renderChecks();
+        })
+        .catch((e) => { SOUND.err = (e && e.name) || 'bloqueado'; SOUND.keep = null; SOUND.alarm = null; renderChecks(); });
+      // Se o sistema pausar o áudio (ex.: ligação), retoma quando possível.
+      SOUND.keep.addEventListener('pause', () => setTimeout(() => SOUND.keep && SOUND.keep.play().catch(() => {}), 1500));
+    } catch (e) { SOUND.err = e.message; }
+  }
+  function soundAlarm(on, title, sub) {
+    if (!SOUND.alarm) return;
+    SOUND.alarm.muted = !on;
+    if (on) { SOUND.alarm.currentTime = 0; if (SOUND.alarm.paused) SOUND.alarm.play().catch(() => {}); setMedia(`🔔 ${title}`, sub || 'Toque para abrir e responder ESTOU INDO'); }
+  }
+  function stopSoundMode() {
+    ['keep', 'alarm'].forEach((k) => { try { SOUND[k] && SOUND[k].pause(); } catch { /* */ } SOUND[k] = null; });
+    SOUND.on = false;
+  }
+
   // ---------- ativação (precisa do toque do motorista) ----------
   function unlockAudio() {
     try { if (!S.audio) S.audio = new (window.AudioContext || window.webkitAudioContext)(); S.audio.resume(); } catch { S.audio = null; }
   }
-  document.addEventListener('pointerdown', () => { if (!S.audio) { unlockAudio(); renderChecks(); } }, { passive: true });
+  document.addEventListener('pointerdown', () => {
+    if (!$('#vMain').hidden && S.state && !['FINALIZADO', 'CANCELADO', 'ATENDIDO'].includes(S.state.status)) startSoundMode();
+    if (!S.audio) { unlockAudio(); renderChecks(); }
+  }, { passive: true });
 
   $('#activateBtn').addEventListener('click', async () => {
     const perm = askPermission(); // 1º: o pedido de permissão, ainda dentro do toque
+    startSoundMode(); // 2º: alarme sonoro em segundo plano (também precisa do toque)
     try { navigator.vibrate && navigator.vibrate(150); } catch { /* */ }
     unlockAudio();
     $('#activateBtn').disabled = true;
@@ -252,12 +312,19 @@
       if (done && !s.exited) set('go', 'SAÍDA LIBERADA', 'Pode sair', 'Apresente-se na portaria com o caminhão.', 'Saída liberada');
       else set('end', done ? 'SAÍDA REGISTRADA' : 'AUTORIZAÇÃO ENCERRADA', done ? 'Boa viagem!' : 'Procure a portaria', 'Você já pode fechar esta página.', done ? 'Boa viagem' : 'Encerrado');
       if (s.exited || !done) {
+        stopSoundMode();
         if (S.es) S.es.close();
         try { localStorage.removeItem(KEY); } catch { /* */ }
       }
     }
     const key = callKey(s);
-    if (key) { if (S.alarmKey !== key) { stopAlarm(); S.alarmKey = key; } startAlarm(); } else { stopAlarm(); S.alarmKey = null; }
+    if (key) {
+      if (S.alarmKey !== key) { stopAlarm(); S.alarmKey = key; soundAlarm(true, $('#headline').textContent, $('#subline').textContent); }
+      startAlarm();
+    } else {
+      stopAlarm(); S.alarmKey = null; soundAlarm(false);
+      if (SOUND.on) setMedia($('#kicker').textContent, `${$('#headline').textContent} — não feche esta aba`);
+    }
     renderChecks();
   }
 
@@ -270,7 +337,8 @@
       items.push([S.live, S.live ? 'Conectado à portaria (internet ok)' : 'Sem conexão — verifique a internet do celular']);
       if ('vibrate' in navigator) items.push([!!S.audio, S.audio ? 'Som e vibração da página ativados' : 'Toque na tela uma vez para liberar o som']);
       else items.push([false, isIOS ? 'iPhone não vibra por páginas web: deixe o volume alto' : 'Este navegador não vibra: deixe o volume alto']);
-      if (pushMode() !== 'ok') items.push([!!S.wake, S.wake ? 'Tela mantida ligada' : 'A tela pode apagar — evite bloquear o celular']);
+      items.push([SOUND.on, SOUND.on ? 'Alarme sonoro ativo: toca com a tela bloqueada ou em outro app (não feche esta aba)'
+        : SOUND.err ? 'Alarme sonoro bloqueado pelo navegador — toque na tela uma vez' : 'Toque na tela uma vez para ligar o alarme sonoro']);
     }
     $('#checks').innerHTML = items.map(([ok, t]) => `<li class="${ok ? '' : 'no'}">${t}</li>`).join('');
     $('#checks').hidden = !items.length;
@@ -291,19 +359,19 @@
     if (done) { box.hidden = true; $('#footNote').textContent = ''; return; }
     const mode = pushMode();
     box.hidden = false;
-    box.className = 'card pushbox ' + (mode === 'ok' ? 'ok' : 'bad');
+    box.className = 'card pushbox ' + (mode === 'ok' || SOUND.on ? 'ok' : 'bad');
     const html = {
       ok: `<h3>✔ Pode bloquear o celular</h3>
         <div>Pode usar outros aplicativos ou bloquear a tela. A chamada chega como <b>notificação com vibração</b> e se repete até você responder. Dá para tocar em <b>ESTOU INDO</b> direto na notificação.</div>
         <button class="btn alt" id="testBtn">TESTAR AVISO</button><p class="msg" id="testMsg"></p>`,
       ask: `<h3>⚠ Falta permitir as notificações</h3>
-        <div>Sem isso, você <b>só é chamado com esta página aberta na tela</b>. Toque no botão e depois em <b>Permitir</b>.</div>
+        <div>${SOUND.on ? '🔊 O <b>alarme sonoro</b> já está ativo: pode sair desta tela ou bloquear o celular, <b>sem fechar esta aba</b>. ' : ''}Para receber também como notificação, toque no botão e depois em <b>Permitir</b>.</div>
         <button class="btn" id="permBtn">PERMITIR NOTIFICAÇÕES</button><p class="msg bad" id="permMsg"></p>`,
       error: `<h3>⚠ O celular não conseguiu ativar os avisos</h3>
         <div>As notificações não estão chegando neste celular (${escapeHtml(S.pushErr || (S.state && S.state.push_error) || '')}). Toque em <b>REATIVAR</b>. Se continuar, abra este link no <b>Chrome</b> e confira a internet.</div>
         <button class="btn" id="permBtn">REATIVAR AVISOS</button><p class="msg bad" id="permMsg"></p>`,
-      denied: `<h3>⚠ Notificações bloqueadas neste navegador</h3>
-        <div>Você <b>só será chamado com esta página aberta na tela</b>. Para liberar:</div>
+      denied: `<h3>${SOUND.on ? '🔊 Alarme sonoro ativo · notificações bloqueadas' : '⚠ Notificações bloqueadas neste navegador'}</h3>
+        <div>${SOUND.on ? 'Você <b>será chamado pelo alarme sonoro</b>, mesmo com a tela bloqueada ou em outro app. <b>Não feche esta aba</b> e deixe o <b>volume de mídia alto</b>. Para receber também como notificação, libere:' : 'Toque na tela para ligar o alarme sonoro. Para receber também como notificação, libere:'}</div>
         <ol><li>Toque no ícone <b>à esquerda do endereço</b> do site (cadeado ou ajustes).</li>
         <li>Toque em <b>Permissões</b> → <b>Notificações</b> → ligue. Se aparecer, toque em <b>Redefinir permissões</b>.</li>
         <li>Não aparece ou está cinza? Em <b>Configurações do celular</b> → <b>Aplicativos</b> → <b>Chrome</b> (ou o navegador que abriu esta página) → <b>Notificações</b> → ligue.</li>
@@ -314,15 +382,15 @@
         <ol><li>Toque em <b>Compartilhar</b> (quadrado com seta ↑) no Safari.</li>
         <li>Toque em <b>Adicionar à Tela de Início</b> → <b>Adicionar</b>.</li>
         <li>Abra pelo novo ícone <b>Chamada</b> e toque em <b>ATIVAR ALERTAS</b> → <b>Permitir</b>.</li></ol>
-        <div>Até lá, deixe esta página aberta e o volume alto.</div>`,
+        <div>Até lá, o alarme sonoro desta aba chama você: não feche a aba e deixe o volume alto.</div>`,
       unsupported: `<h3>⚠ Este navegador não recebe notificações</h3>
         <div>Abra o link no <b>Chrome</b> ou deixe esta página aberta na tela, com volume alto.</div>`,
     }[mode];
-    const sig = mode + (mode === 'error' ? (S.pushErr || (S.state && S.state.push_error) || '') : '');
+    const sig = mode + (SOUND.on ? '+som' : '') + (mode === 'error' ? (S.pushErr || (S.state && S.state.push_error) || '') : '');
     if (box.dataset.mode !== sig) { box.innerHTML = html; box.dataset.mode = sig; }
     $('#footNote').textContent = mode === 'ok'
       ? 'Não feche o navegador "à força" (arrastando da lista de apps) e mantenha a internet ligada. No silencioso ou em "Não perturbe" o celular pode não vibrar.'
-      : 'Mantenha esta página aberta, com internet ligada. Volume e vibração dependem das configurações do seu celular.';
+      : 'Não feche esta aba (pode sair dela ou bloquear o celular). Internet ligada e VOLUME DE MÍDIA alto: é ele que toca o alarme.';
   }
   function escapeHtml(t) { return String(t || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 

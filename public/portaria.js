@@ -122,7 +122,7 @@
       let acts = '';
       if (open) {
         // A portaria só lança e acompanha: quem chama e indica a doca é o Recebimento/Expedição.
-        acts += `<button class="btn xs" data-a="qr" data-id="${v.id}">QR</button><button class="btn xs no" data-a="cancel" data-id="${v.id}">Cancelar</button>`;
+        acts += `<button class="btn xs" data-a="qr" data-id="${v.id}">Celular</button><button class="btn xs no" data-a="cancel" data-id="${v.id}">Cancelar</button>`;
       }
       if (awaitingExit(v)) acts = `<button class="btn xs primary" data-a="exit" data-id="${v.id}">REGISTRAR SAÍDA</button>` + acts;
       acts += `<button class="btn xs" data-a="log" data-id="${v.id}">Histórico</button>`;
@@ -195,22 +195,19 @@
     } catch (err) { $('#arrErr').textContent = err.message; }
   });
 
+  // Sem QR por motorista: ele usa SEMPRE o cartaz fixo da portaria e digita placa + final do celular.
   async function qrDialog(v, fresh) {
-    const { driver_link: link } = v.driver_link ? v : await api(`/visits/${v.id}/link`);
     S.qrId = v.id;
     modal({
-      title: fresh ? 'Entrada autorizada' : `QR do motorista — ${v.auth_code}`,
-      body: `<div class="qrbox"><img src="/api/visits/${v.id}/qr.svg" alt="QR Code do motorista">
+      title: fresh ? 'Entrada autorizada' : `Celular do motorista — ${v.auth_code}`,
+      body: `<div class="authbox">
         <div><div class="sub">Autorização</div><div class="big-auth">${esc(v.auth_code)}</div>
-        <p><b>${esc(v.driver_name)}</b><br><span class="plate">${esc(v.plate)}</span> <span class="tag ${v.op_type}">${TYPE[v.op_type]}</span>${v.next_op ? ` <span class="sub">➜ depois ${NAME[v.next_op]}</span>` : ''}</p>
-        <div class="cartaz-id">Pelo <b>CARTAZ</b> da portaria, o motorista digita:<br>placa <b class="plate">${esc(v.plate)}</b> + final do celular <b class="plate">${esc(v.phone.slice(-4))}</b></div>
-        <p class="sub">Ou lê este QR individual. Depois: <b>ATIVAR ALERTAS</b> → <b>PERMITIR</b>. Só o celular dele recebe as chamadas desta placa.</p>
-        <div id="qrLive" class="qrlive"></div></div></div>
-        <p class="sub" style="word-break:break-all">Link individual: <span class="mono">${esc(link)}</span></p>`,
-      buttons: [
-        { label: 'Copiar link', action: async () => { await navigator.clipboard.writeText(link).catch(() => {}); toast('Link copiado.'); return false; } },
-        { label: 'Fechar', cls: 'primary' },
-      ],
+        <p><b>${esc(v.driver_name)}</b><br><span class="plate">${esc(v.plate)}</span> <span class="tag ${v.op_type}">${TYPE[v.op_type]}</span>${v.next_op ? ` <span class="sub">➜ depois ${NAME[v.next_op]}</span>` : ''}</p></div>
+        <div class="cartaz-id big">O motorista lê o <b>QR do CARTAZ</b> da portaria e digita:<br>
+          placa <b class="plate">${esc(v.plate)}</b> &nbsp;+&nbsp; final do celular <b class="plate">${esc(v.phone.slice(-4))}</b><br>
+          <span class="sub">Depois: <b>ATIVAR ALERTAS</b> → <b>PERMITIR</b>. Só o celular dele recebe as chamadas desta placa.</span></div>
+        <div id="qrLive" class="qrlive"></div></div>`,
+      buttons: [{ label: 'Fechar', cls: 'primary' }],
       onOpen: () => qrLive(v),
     });
   }
@@ -219,11 +216,13 @@
     const el = $('#qrLive'); if (!el || $('#modal').hidden) { S.qrId = null; return; }
     const ok = (b) => (b ? '<b class="ok">✔</b>' : '<b class="no">○</b>');
     const all = v.driver_linked_at && v.push_enabled && v.test_ok_at;
+    const soundOnly = !all && v.driver_online && !v.push_enabled; // sem notificação, mas com a página (alarme sonoro) aberta
     el.innerHTML = `<ul>
       <li>${ok(v.driver_linked_at)} Celular abriu a página${v.driver_online ? ' (aberta agora)' : ''}</li>
       <li>${ok(v.push_enabled)} Notificações permitidas${!v.push_enabled && v.driver_linked_at ? ' — <span class="no">peça para tocar em PERMITIR; se estiver bloqueado, a tela dele mostra como liberar</span>' : ''}</li>
       <li>${ok(v.test_ok_at)} Aviso de teste chegou no celular${v.test_ok_at ? ` ${hm(v.test_ok_at)}` : ''}</li></ul>
       ${all ? '<div class="qrok">TUDO CERTO — pode liberar o motorista para o pátio</div>'
+        : soundOnly ? '<div class="qrok warn">OK COM ALARME SONORO — oriente o motorista: NÃO FECHAR a página e deixar o VOLUME DE MÍDIA alto</div>'
         : `<button class="btn sm" id="qrTest" ${v.push_enabled ? '' : 'disabled'}>TESTAR AVISO NO CELULAR</button><span class="sub" id="qrTestMsg"></span>`}`;
     const t = $('#qrTest');
     if (t) t.onclick = async () => {

@@ -39,14 +39,14 @@ Siga o **GUIA-NUVEM.md** (GitHub + Render + Neon, todos gratuitos).
 | `/` | Portaria | Lançar chegada, QR + checagem do celular, acompanhar o pátio, registrar saída |
 | `/equipe` | Recebimento / Expedição (PC ou TV) | Chamar, recados, doca, transferir, liberar saída |
 | `/m/` | Motorista (celular) | Receber chamadas e recados |
-| `/cartaz` | Portaria | QR fixo para imprimir (alternativa ao QR individual) |
+| `/cartaz` | Portaria | **O único QR do sistema**: imprimir e fixar na guarita |
 
 ## 2. Operação passo a passo
 
 **Portaria:**
 1. Escolha RECEBIMENTO ou EXPEDIÇÃO e preencha os dados. Se o caminhão vai fazer as duas operações, marque **Operação dupla**.
-2. Clique em **LANÇAR NA FILA E GERAR QR**. A janela mostra o que o motorista digita no **cartaz**: placa + final do celular, por exemplo `ABC1D23` + `4321`.
-   Ele lê o **cartaz fixo** (ou o QR individual), confere o **nome e a placa dele** na tela, toca em **ATIVAR ALERTAS** e depois em **PERMITIR**.
+2. Clique em **LANÇAR NA FILA** (não gera QR novo). A janela mostra o que o motorista digita no **cartaz**: placa + final do celular, por exemplo `ABC1D23` + `4321`.
+   Ele lê o **QR do cartaz fixo**, digita placa + final do celular, confere o **nome e a placa dele** na tela, toca em **ATIVAR ALERTAS** e depois em **PERMITIR**.
    - Cada celular fica ligado a **uma única placa**. A chamada vai só para o celular daquela placa, mesmo com vários caminhões aguardando.
    - Se o celular já tinha um acesso antigo salvo, a tela pergunta **"É você?"** antes de mostrar qualquer coisa.
 3. Na janela do QR, espere ficar ✔ em **página aberta** e **notificações permitidas**. Peça para ele **bloquear o celular** e clique em **TESTAR AVISO NO CELULAR**.
