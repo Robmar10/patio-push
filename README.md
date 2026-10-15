@@ -9,14 +9,14 @@ assinar canhoto, documentos, mudar de doca, texto livre) e pode **passar o camin
 
 **A chamada diz o que fazer:** Recebimento = **DESCARREGAR NA DOCA 04**; Expedição = **CARREGAR NA DOCA 07**.
 
-**Sem custo por mensagem** (não usa SMS). O plano B, quando o celular não recebe, é o **WhatsApp/telefone com um clique**.
+**Sem custo por mensagem** (não usa SMS). O plano B, quando o celular não recebe, é **ligar para o motorista** (o número aparece na tela da equipe).
 
 ## O que mudou na v3
 
 | Problema encontrado | O que a v3 faz |
 |---|---|
 | Ninguém sabia se a notificação **chegou** no celular ("enviada" só quer dizer que o Google recebeu) | O celular confirma a chegada. A equipe vê **📳 chegou no celular 14:02** |
-| Chamada que não chega = caminhão que "some" | **Vigia de 75 s:** se não chegou ou ninguém respondeu, a tela da equipe pisca em vermelho com **WhatsApp** e **Ligar** prontos |
+| Chamada que não chega = caminhão que "some" | **Vigia de 75 s:** se não chegou ou ninguém respondeu, a tela da equipe pisca em vermelho com o botão **Ligar** prontos |
 | Motorista saía da guarita com o celular sem notificação | O QR da portaria mostra **3 checagens ao vivo** (página aberta, notificações, teste) e o botão **TESTAR AVISO** |
 | No Android, o pedido de permissão era feito tarde e podia ser bloqueado | A permissão é pedida **no instante do toque**, e a tela explica como desbloquear, inclusive nas configurações do Android |
 | Motorista precisava ficar com a tela aberta | A notificação **se repete a cada 30 s (até 5 min)** e tem o botão **✅ ESTOU INDO** |
@@ -51,8 +51,7 @@ Siga o **GUIA-NUVEM.md** (GitHub + Render + Neon, todos gratuitos).
    - Se o celular já tinha um acesso antigo salvo, a tela pergunta **"É você?"** antes de mostrar qualquer coisa.
 3. Na janela do QR, espere ficar ✔ em **página aberta** e **notificações permitidas**. Peça para ele **bloquear o celular** e clique em **TESTAR AVISO NO CELULAR**.
    Quando aparecer **TUDO CERTO**, libere o motorista para o pátio.
-   - Sem câmera: **Enviar link por WhatsApp**.
-   - Notificações bloqueadas: a tela do motorista mostra como liberar. Se não der, a equipe vai usar o WhatsApp.
+   - Notificações bloqueadas: a tela do motorista mostra como liberar. Se não der, a equipe liga para o motorista.
 4. Quando a equipe libera, a linha fica **Liberado — sair**. Na saída, clique em **REGISTRAR SAÍDA**.
 
 **Recebimento / Expedição (`/equipe`):**
@@ -68,8 +67,8 @@ Siga o **GUIA-NUVEM.md** (GitHub + Render + Neon, todos gratuitos).
 - Cada cartão mostra:
   - se a chamada **chegou no celular** (📳);
   - se ele **respondeu** (✔);
-  - os botões **WhatsApp** e **Ligar**, com a mensagem pronta.
-- **Alerta vermelho** "O CELULAR NÃO RECEBEU A CHAMADA" ou "MOTORISTA NÃO RESPONDEU": avise pelo WhatsApp ou ligue, depois **CIENTE — VOU AVISAR**.
+  - o botão **Ligar**, com o número do motorista.
+- **Alerta vermelho** "O CELULAR NÃO RECEBEU A CHAMADA" ou "MOTORISTA NÃO RESPONDEU": ligue para o motorista, depois **CIENTE — VOU AVISAR**.
 
 **Motorista:**
 - Depois de permitir as notificações, **pode bloquear o celular ou usar outros apps**.
@@ -87,13 +86,13 @@ Faça com pelo menos 3 aparelhos: **Samsung**, **Motorola ou Xiaomi** e **iPhone
 | 4 | Tocar em **✅ ESTOU INDO** na notificação, sem abrir a página | Equipe pisca "MOTORISTA A CAMINHO" e as repetições param | ☐ |
 | 5 | Recado na fila: **Buscar nota fiscal → Escritório Expedição** | Celular mostra o recado e o local | ☐ |
 | 6 | Na doca: **Assinar canhoto** e depois **ENVIAR P/ EXPEDIÇÃO** | Celular: "Libere a doca e aguarde a Expedição"; tela da Expedição pisca | ☐ |
-| 7 | **Desligar os dados móveis** e chamar | Em ~75 s a equipe recebe o alerta vermelho com WhatsApp e Ligar | ☐ |
+| 7 | **Desligar os dados móveis** e chamar | Em ~75 s a equipe recebe o alerta vermelho com o botão Ligar | ☐ |
 | 8 | Liberar saída → portaria **REGISTRAR SAÍDA** | Celular "Boa viagem"; indicador **tempo no pátio** | ☐ |
 | 9 | Celular no silencioso / "Não perturbe" | Registrar o que acontece (depende do aparelho) | ☐ |
 
 ## 4. Limitações (honestas)
 
-- **Sem internet no celular, nenhuma notificação chega.** O vigia avisa a equipe, e o plano B é WhatsApp ou ligação.
+- **Sem internet no celular, nenhuma notificação chega.** O vigia avisa a equipe, e o plano B é ligar para o motorista.
 - **Notificações bloqueadas:** o site não consegue desbloquear sozinho. O motorista precisa liberar nas configurações; a tela dele mostra como.
 - **iPhone:**
   - não vibra por página web;

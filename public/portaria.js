@@ -197,8 +197,6 @@
 
   async function qrDialog(v, fresh) {
     const { driver_link: link } = v.driver_link ? v : await api(`/visits/${v.id}/link`);
-    const first = v.driver_name.split(' ')[0];
-    const wa = `https://wa.me/${intl(v.phone)}?text=${encodeURIComponent(`Olá ${first}! Aqui é a portaria${S.siteName ? ` (${S.siteName})` : ''}. Abra este link, toque em ATIVAR ALERTAS e em PERMITIR para ser chamado no celular: ${link}`)}`;
     S.qrId = v.id;
     modal({
       title: fresh ? 'Entrada autorizada' : `QR do motorista — ${v.auth_code}`,
@@ -208,9 +206,8 @@
         <div class="cartaz-id">Pelo <b>CARTAZ</b> da portaria, o motorista digita:<br>placa <b class="plate">${esc(v.plate)}</b> + final do celular <b class="plate">${esc(v.phone.slice(-4))}</b></div>
         <p class="sub">Ou lê este QR individual. Depois: <b>ATIVAR ALERTAS</b> → <b>PERMITIR</b>. Só o celular dele recebe as chamadas desta placa.</p>
         <div id="qrLive" class="qrlive"></div></div></div>
-        <p class="sub" style="word-break:break-all">Sem câmera? Envie o link pelo WhatsApp.<br><span class="mono">${esc(link)}</span></p>`,
+        <p class="sub" style="word-break:break-all">Link individual: <span class="mono">${esc(link)}</span></p>`,
       buttons: [
-        { label: 'Enviar link por WhatsApp', action: async () => { window.open(wa, '_blank', 'noopener'); return false; } },
         { label: 'Copiar link', action: async () => { await navigator.clipboard.writeText(link).catch(() => {}); toast('Link copiado.'); return false; } },
         { label: 'Fechar', cls: 'primary' },
       ],

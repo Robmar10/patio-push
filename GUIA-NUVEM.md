@@ -130,7 +130,7 @@
     6. **Recebimento:** **Encostou na doca** → **ENVIAR P/ EXPEDIÇÃO**. O celular mostra "Aguarde a Expedição" e a tela da Expedição pisca.
     7. **Expedição:** chama → doca → **Encostou** → **CHAMAR MOTORISTA → Carga/descarga concluída** → **Liberar saída**.
     8. **Portaria:** **REGISTRAR SAÍDA**. O celular mostra "Boa viagem".
-    9. **Teste de falha:** com os **dados móveis desligados**, chame. Em ~75 s a tela da equipe fica **vermelha** com **WhatsApp** e **Ligar**.
+    9. **Teste de falha:** com os **dados móveis desligados**, chame. Em ~75 s a tela da equipe fica **vermelha** com o botão **Ligar**.
 
 ---
 
@@ -169,5 +169,5 @@ Quando eu te enviar uma versão nova:
 | Portaria volta sozinha para a tela de login | O Render reiniciou o serviço. Entre de novo com o PIN; a fila continua lá. |
 | Celular não vibra | iPhone não vibra por página web. No Android, confira se tocou em **ATIVAR ALERTAS** e se o celular não está no silencioso. |
 | Quadro vermelho "Notificações bloqueadas" no celular | Toque no ícone à esquerda do endereço → Permissões → Notificações → ligar. Se não aparecer: Configurações do Android → Aplicativos → Chrome → Notificações → ligar. Recarregue a página. |
-| Equipe recebe "O CELULAR NÃO RECEBEU A CHAMADA" | Celular sem internet, notificações bloqueadas ou economia de bateria. Avise pelo botão WhatsApp/Ligar e, depois, revise as configurações do celular com o motorista. |
+| Equipe recebe "O CELULAR NÃO RECEBEU A CHAMADA" | Celular sem internet, notificações bloqueadas ou economia de bateria. Ligue para o motorista pelo botão Ligar e, depois, revise as configurações do celular com o motorista. |
 | Celular abre a página antiga depois de atualizar | Feche a aba e abra o link de novo. A partir da v3, as páginas sempre buscam a versão nova. |

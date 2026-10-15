@@ -65,19 +65,36 @@ if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
 }
 webpush.setVapidDetails(CFG.vapidSubject, vapid.publicKey, vapid.privateKey);
 
+// Envia a notificação para o(s) celular(es) desta visita e guarda o resultado REAL do serviço de push
+// (Google/Apple/Mozilla). Inscrição que o serviço recusa de vez (expirada, ou feita com outra chave) é removida
+// e a visita deixa de aparecer como "notificação ativa" — a tela mostra a falha em vez de fingir que funciona.
 async function pushToVisit(visit, payload) {
   const subs = db.prepare('SELECT * FROM push_subscriptions WHERE visit_id = ?').all(visit.id);
-  let ok = 0;
+  let ok = 0; let lastErr = null;
   for (const s of subs) {
     try {
       await webpush.sendNotification({ endpoint: s.endpoint, keys: JSON.parse(s.keys) }, JSON.stringify(payload), { TTL: 600, urgency: 'high' });
       ok++;
     } catch (e) {
-      if (e.statusCode === 404 || e.statusCode === 410) db.prepare('DELETE FROM push_subscriptions WHERE id = ?').run(s.id);
-      logEvent(visit.id, 'PUSH_FALHOU', { status: e.statusCode, msg: String(e.body || e.message).slice(0, 200) }, 'sistema');
+      const code = e.statusCode || 0;
+      const msg = String(e.body || e.message || '').replace(/\s+/g, ' ').slice(0, 160);
+      lastErr = `${code || 'rede'} ${msg}`.trim();
+      // 404/410: inscrição expirou. 401/403: inscrição feita com outra chave do servidor (nunca vai funcionar).
+      if ([401, 403, 404, 410].includes(code)) db.prepare('DELETE FROM push_subscriptions WHERE id = ?').run(s.id);
+      logEvent(visit.id, 'PUSH_FALHOU', { status: code, msg }, 'sistema');
     }
   }
-  return { subscriptions: subs.length, delivered_to_push_service: ok };
+  if (subs.length) {
+    if (ok) db.prepare('UPDATE visits SET last_push_ok_at = ?, last_push_error = NULL WHERE id = ?').run(now(), visit.id);
+    else db.prepare('UPDATE visits SET last_push_error = ? WHERE id = ?').run(lastErr, visit.id);
+    const left = db.prepare('SELECT COUNT(*) n FROM push_subscriptions WHERE visit_id = ?').get(visit.id).n;
+    if (!left) {
+      db.prepare('UPDATE visits SET push_enabled = 0 WHERE id = ?').run(visit.id);
+      logEvent(visit.id, 'NOTIFICACAO_DESATIVADA', { motivo: lastErr }, 'sistema');
+      setImmediate(() => broadcastVisit(visit.id));
+    }
+  }
+  return { subscriptions: subs.length, delivered_to_push_service: ok, error: ok ? null : lastErr };
 }
 
 // ---------- Tempo real (Server-Sent Events) ----------
@@ -149,6 +166,7 @@ function driverView(v) {
     team: TEAM[v.op_type], action: ACTION[v.op_type], next_team: v.next_op ? TEAM[v.next_op] : null, leg: v.leg || 1, prev_dock: v.prev_dock || null,
     msg: msgView(v),
     exited: !!v.exited_at,
+    push_error: v.push_enabled ? null : v.last_push_error || null,
   };
 }
 function broadcastVisit(id) {
@@ -338,7 +356,7 @@ function loadActive(req, res, allowed) {
 // mesmo com o celular bloqueado ou em outro aplicativo. Para sozinha quando ele toca ESTOU INDO
 // (na página ou no botão da própria notificação) ou quando a equipe muda a situação.
 // Vigia: se em WATCH_MS a chamada não chegou no celular (ou chegou e ninguém respondeu), a tela da equipe pisca
-// com o telefone e o WhatsApp do motorista — a equipe fica sabendo na hora em vez de esperar um caminhão que não vem.
+// com o telefone do motorista para ligar — a equipe fica sabendo na hora em vez de esperar um caminhão que não vem.
 const RING_EVERY_MS = Number(process.env.RING_EVERY_MS || 30000);
 const RING_MAX = Number(process.env.RING_MAX || 10);
 const WATCH_MS = Number(process.env.WATCH_MS || 75000);
@@ -484,7 +502,7 @@ app.post('/api/visits/:id/dock-call', staff, messageCall); // nome antigo, manti
 // Passar o caminhão para a outra equipe: descarregou no Recebimento e vai carregar na Expedição (ou o contrário),
 // ou a portaria lançou na equipe errada. Ele volta para a fila da outra equipe, que é avisada na tela.
 app.post('/api/visits/:id/transfer', staff, async (req, res) => {
-  const v = loadActive(req, res, QUEUE_AND_DOCK); if (!v) return;
+  const v = loadActive(req, res, ACTIVE); if (!v) return;
   const to = otherTeam(v.op_type);
   const fromDock = v.status === 'NA_DOCA' ? v.dock : null;
   const mins = (a, b) => (a && b ? Math.round((new Date(b) - new Date(a)) / 60000) : null);
@@ -709,6 +727,7 @@ app.post('/api/driver/push-subscribe', (req, res) => {
   db.prepare(`INSERT INTO push_subscriptions (visit_id, endpoint, keys, created_at) VALUES (?,?,?,?)
     ON CONFLICT(endpoint) DO UPDATE SET visit_id = excluded.visit_id, keys = excluded.keys`)
     .run(v.id, s.endpoint, JSON.stringify({ p256dh: s.keys.p256dh, auth: s.keys.auth }), now());
+  db.prepare('UPDATE visits SET last_push_error = NULL WHERE id = ?').run(v.id);
   if (!v.push_enabled || !known || known.visit_id !== v.id) {
     db.prepare('UPDATE visits SET push_enabled = 1 WHERE id = ?').run(v.id);
     logEvent(v.id, 'NOTIFICACAO_PERMITIDA', null, 'motorista');

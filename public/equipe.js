@@ -2,7 +2,7 @@
 /* Tela do Recebimento / Expedição: chama o motorista e indica a doca, manda recados (buscar nota, assinar
    canhoto, documentos, texto livre) com o local, marca quando encostou, chama na doca, passa o caminhão para a
    outra equipe e libera a saída. Pisca e apita quando há caminhão novo, quando o motorista responde e quando
-   a chamada NÃO chegou no celular (com WhatsApp e telefone prontos). */
+   a chamada NÃO chegou no celular (com o telefone do motorista para ligar). */
 (() => {
   const $ = (s) => document.querySelector(s);
   const TKEY = 'pp_team';
@@ -98,21 +98,19 @@
   const callPending = (v) => v.status === 'CHAMADO' || msgPending(v);
   function busyDocks() { const m = {}; for (const v of S.visits.values()) if (['CHAMADO', 'CONFIRMADO', 'NA_DOCA'].includes(v.status) && v.dock) m[v.dock] = (m[v.dock] || 0) + 1; return m; }
 
-  // Mensagem pronta para o WhatsApp (plano B quando o celular não recebe a notificação).
-  function waText(v) {
-    const first = v.driver_name.split(' ')[0];
-    const who = `Aqui é o ${NAME[v.op_type]}${S.cfg.siteName ? ` (${S.cfg.siteName})` : ''}.`;
-    if (msgPending(v)) return `Olá ${first}! ${who} ${v.msg.head}: ${v.msg.text} Caminhão ${v.plate}.`;
-    if (v.status === 'CHAMADO' || v.status === 'CONFIRMADO') return `Olá ${first}! ${who} Sua vez de ${ACT[v.op_type].toLowerCase()}: leve o caminhão ${v.plate} para a ${v.dock}.`;
-    if (v.status === 'NA_DOCA') return `Olá ${first}! ${who} Compareça ao seu caminhão na ${v.dock}.`;
-    return `Olá ${first}! ${who} Seu caminhão ${v.plate} está na fila para ${ACT[v.op_type].toLowerCase()}. Mantenha a página de chamada aberta e as notificações ativas.`;
-  }
-  const contact = (v, big) => `<a class="ct wa${big ? ' big' : ''}" target="_blank" rel="noopener" href="https://wa.me/${intl(v.phone)}?text=${encodeURIComponent(waText(v))}">WhatsApp</a>`
-    + `<a class="ct tel${big ? ' big' : ''}" href="tel:+${intl(v.phone)}">Ligar ${esc(fmtPhone(v.phone))}</a>`;
+  // Plano B quando a notificação não chega: ligar para o motorista.
+  const contact = (v, big) => `<a class="ct tel${big ? ' big' : ''}" href="tel:+${intl(v.phone)}">Ligar ${esc(fmtPhone(v.phone))}</a>`;
+
+  // Confirmação em 2 toques na própria tela (janelas "confirm" do navegador podem estar bloqueadas no PC).
+  const ARM_MS = 6000;
+  const armed = (a, v) => S.arm && S.arm.key === `${a}:${v.id}` && Date.now() < S.arm.until;
+  const lbl = (a, v, normal) => (armed(a, v) ? (a === 'transfer' ? `TOQUE DE NOVO: ENVIAR P/ ${NAME[other(v.op_type)].toUpperCase()}` : 'TOQUE DE NOVO: LIBERAR SAÍDA') : normal);
+  const armCls = (a, v) => (armed(a, v) ? ' armed' : '');
 
   function flags(v) {
     const f = [v.driver_online ? '<span class="ok">● página aberta</span>' : v.driver_linked_at ? '<span class="off">○ página fechada</span>' : '<span class="wn">○ celular não conectou — avise por outro meio</span>'];
     if (v.push_enabled) f.push('<span class="ok">🔔 chama com celular bloqueado</span>');
+    else if (v.last_push_error) f.push(`<span class="wn">⚠ notificação recusada (${esc(String(v.last_push_error).split(' ')[0])}) — ligue para o motorista; peça para tocar em REATIVAR AVISOS</span>`);
     else if (v.driver_linked_at) f.push('<span class="wn">🔕 sem notificação — só chama com a página aberta</span>');
     if (callPending(v) && v.last_ring_at) {
       f.push(v.push_receipt_at && v.push_receipt_at >= v.last_ring_at
@@ -152,21 +150,22 @@
       when = `${(v.leg || 1) > 1 ? 'na fila desde' : 'chegou'} ${hm(v.queued_at || v.arrived_at)} · esperando ${dur(mins(v.queued_at || v.arrived_at))}`;
       acts = `<button class="btn tcall" data-a="pick-call" data-id="${v.id}">CHAMAR MOTORISTA</button>
         <button class="btn sm tsec" data-a="pick-reason" data-id="${v.id}">Recado</button>
-        <button class="btn sm tsec" data-a="transfer" data-id="${v.id}">Passar p/ ${otherName}</button>`;
+        <button class="btn sm tsec${armCls('transfer', v)}" data-a="transfer" data-id="${v.id}">${lbl('transfer', v, `Passar p/ ${otherName}`)}</button>`;
       if (p && p.kind === 'call') pk = `<div class="pk"><span class="lbl">Doca para ${ACT[v.op_type]} — só o celular de ${esc(v.driver_name.split(' ')[0])} (${esc(v.plate)}) vibra:</span>${dockGrid(v, 'call')}</div>`;
     } else if (v.status === 'CHAMADO' || v.status === 'CONFIRMADO') {
       when = `chamado ${hm(v.called_at)}${v.call_count > 1 ? ` · ${v.call_count} chamadas` : ''}`;
       acts = `<button class="btn sm tcall" data-a="recall" data-id="${v.id}">Rechamar</button>
         <button class="btn sm tsec" data-a="pick-call" data-id="${v.id}">Trocar doca</button>
         <button class="btn sm tok" data-a="docked" data-id="${v.id}">Encostou na doca</button>
-        <button class="btn sm tno" data-a="uncall" data-id="${v.id}">Voltar para a fila</button>`;
+        <button class="btn sm tno" data-a="uncall" data-id="${v.id}">Voltar para a fila</button>
+        <button class="btn sm ${v.next_op ? 'tnext' : 'tsec'}${armCls('transfer', v)}" data-a="transfer" data-id="${v.id}">${lbl('transfer', v, `Passar p/ ${otherName}`)}</button>`;
       if (p && p.kind === 'call') pk = `<div class="pk"><span class="lbl">Nova doca — o motorista é chamado de novo:</span>${dockGrid(v, 'call')}</div>`;
     } else if (v.status === 'NA_DOCA') {
       when = `na doca desde ${hm(v.docked_at)} · ${dur(mins(v.docked_at))}`;
       acts = `<button class="btn tcall" data-a="pick-reason" data-id="${v.id}">CHAMAR MOTORISTA</button>
-        ${v.next_op ? `<button class="btn tnext" data-a="transfer" data-id="${v.id}">ENVIAR P/ ${otherName.toUpperCase()}</button>` : ''}
-        <button class="btn sm tok" data-a="finish" data-id="${v.id}">Liberar saída</button>
-        ${v.next_op ? '' : `<button class="btn sm tsec" data-a="transfer" data-id="${v.id}">Enviar p/ ${otherName}</button>`}`;
+        ${v.next_op ? `<button class="btn tnext${armCls('transfer', v)}" data-a="transfer" data-id="${v.id}">${lbl('transfer', v, `ENVIAR P/ ${otherName.toUpperCase()}`)}</button>` : ''}
+        <button class="btn sm tok${armCls('finish', v)}" data-a="finish" data-id="${v.id}">${lbl('finish', v, 'Liberar saída')}</button>
+        ${v.next_op ? '' : `<button class="btn sm tsec${armCls('transfer', v)}" data-a="transfer" data-id="${v.id}">${lbl('transfer', v, `Enviar p/ ${otherName}`)}</button>`}`;
       if (p && p.kind === 'move') pk = `<div class="pk"><span class="lbl">Para qual doca o caminhão vai?</span>${dockGrid(v, 'msg', ' data-reason="MUDAR"')}</div>`;
     }
     if (p && p.kind === 'reason') pk = `<div class="pk"><span class="lbl">${v.status === 'NA_DOCA' ? 'Por que chamar o motorista?' : 'Qual recado? O celular vibra até ele responder:'}</span>${reasonGrid(v)}</div>`;
@@ -214,7 +213,7 @@
     $('#aDock').textContent = v.team_alert_kind === 'NOVA_CHEGADA' || v.team_alert_kind === 'TRANSFERIDO' ? 'CHAMAR' : (msgPending(v) && v.msg.place ? v.msg.place : v.dock || '');
     $('#aPlate').textContent = v.plate;
     $('#aInfo').innerHTML = prob
-      ? `${esc(v.driver_name)} · ${esc(v.carrier)}<br><b>${v.team_alert_kind === 'NAO_RECEBEU' ? 'A notificação não chegou no celular (sem internet, notificações bloqueadas ou celular desligado).' : 'A chamada chegou, mas o motorista ainda não respondeu.'}</b><br>Avise por outro meio:<div class="a-ct">${contact(v, true)}</div>`
+      ? `${esc(v.driver_name)} · ${esc(v.carrier)}<br><b>${v.team_alert_kind === 'NAO_RECEBEU' ? 'A notificação não chegou no celular (sem internet, notificações bloqueadas ou celular desligado).' : 'A chamada chegou, mas o motorista ainda não respondeu.'}</b><br>Ligue para o motorista:<div class="a-ct">${contact(v, true)}</div>`
       : `${esc(v.carrier)} · ${esc(v.driver_name)}<br><b>${esc(v.cargo)}</b>${v.partner ? ` · ${esc(v.partner)}` : ''}<br>Autorização ${esc(v.auth_code)}`;
     $('#aMore').textContent = p.length > 1 ? `+ ${p.length - 1} aviso(s) aguardando ciência` : '';
     $('#ackBtn').dataset.id = v.id;
@@ -243,10 +242,20 @@
     const report = (r, what) => {
       const d = r.delivery; if (!d) return;
       const ok = d.page_open || d.push.delivered_to_push_service > 0;
-      toast(`${v.driver_name} ${what}: ${ok ? [d.page_open ? 'página aberta tocando' : '', d.push.delivered_to_push_service ? 'notificação enviada — confirmando entrega no celular' : ''].filter(Boolean).join(' + ') : `SEM CONEXÃO com o celular — use o WhatsApp ou ligue ${fmtPhone(v.phone)}`}`, ok ? 'ok' : 'err');
+      toast(`${v.driver_name} ${what}: ${ok ? [d.page_open ? 'página aberta tocando' : '', d.push.delivered_to_push_service ? 'notificação enviada — confirmando entrega no celular' : ''].filter(Boolean).join(' + ') : `SEM CONEXÃO com o celular — ligue para ${fmtPhone(v.phone)}`}`, ok ? 'ok' : 'err');
     };
-    if (a === 'finish' && v.next_op && !confirm(`${v.plate} ainda vai para a ${NAME[v.next_op]}. Liberar a saída mesmo assim?\n\nPara mandar para a ${NAME[v.next_op]}, use "ENVIAR P/ ${NAME[v.next_op].toUpperCase()}".`)) return;
-    if (a === 'transfer' && !confirm(`Passar ${v.plate} para a ${NAME[other(v.op_type)]}?\n\n${v.status === 'NA_DOCA' ? `O motorista recebe o aviso para liberar a ${v.dock} e aguardar no pátio. ` : ''}A tela da ${NAME[other(v.op_type)]} vai piscar para chamar.`)) return;
+    if (a === 'transfer' || (a === 'finish' && v.next_op)) {
+      if (!armed(a, v)) {
+        const key = `${a}:${v.id}`;
+        S.arm = { key, until: Date.now() + ARM_MS };
+        toast(a === 'transfer'
+          ? `Toque de novo para passar ${v.plate} para a ${NAME[other(v.op_type)]}. A tela da ${NAME[other(v.op_type)]} vai piscar para chamar.`
+          : `${v.plate} ainda ia para a ${NAME[v.next_op]}. Toque de novo para liberar a saída mesmo assim.`, 'err');
+        setTimeout(() => { if (S.arm && S.arm.key === key) { S.arm = null; render(); } }, ARM_MS + 50);
+        return render();
+      }
+      S.arm = null;
+    }
     const text = a === 'msg' && b.dataset.reason === 'OUTRO' ? ($('#msgText') ? $('#msgText').value.trim() : '') : undefined;
     if (a === 'msg' && b.dataset.reason === 'OUTRO' && (!text || text.length < 3)) { toast('Escreva o recado antes de escolher o local.', 'err'); $('#msgText') && $('#msgText').focus(); return; }
     S.picker = null; b.disabled = true;

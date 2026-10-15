@@ -67,7 +67,7 @@
       if (!confirmed) { $('#confirmWho').innerHTML = whoHtml(st); return show('vConfirm'); }
       // Já permitiu antes (ex.: abriu pela notificação): vai direto, sem pedir de novo.
       if (hasNotif && Notification.permission === 'granted') {
-        await syncPush();
+        await syncPush(!!st.push_error); // envio falhou antes: renova a inscrição sozinho
         show('vMain'); render(); connect();
         return;
       }
@@ -109,15 +109,25 @@
     } catch { return Promise.resolve(Notification.permission); }
   }
   // Inscreve este celular para receber notificações (não pergunta nada se a permissão já foi dada).
-  async function syncPush() {
+  const sameKey = (sub, key) => {
+    try {
+      const a = new Uint8Array(sub.options.applicationServerKey || []);
+      return a.length === key.length && a.every((x, i) => x === key[i]);
+    } catch { return true; } // navegador não informa a chave: mantém a inscrição
+  };
+  async function syncPush(force) {
     S.pushErr = '';
     if (!hasNotif || Notification.permission !== 'granted' || !('PushManager' in window)) return false;
     try {
       await navigator.serviceWorker.register('/m/sw.js', { scope: '/m/' });
       const reg = await navigator.serviceWorker.ready;
       const { publicKey } = await api('/push/key');
+      const key = b64ToU8(publicKey);
       let sub = await reg.pushManager.getSubscription();
-      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(publicKey) });
+      // Inscrição antiga feita com outra chave do servidor (ou pedido de REATIVAR): o Google recusaria todas as
+      // notificações em silêncio. Cancela e inscreve de novo com a chave atual.
+      if (sub && (force || !sameKey(sub, key))) { try { await sub.unsubscribe(); } catch { /* */ } sub = null; }
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
       await api('/driver/push-subscribe', { token: S.token, subscription: sub.toJSON() });
       bindToken();
       if (S.state) S.state.push_enabled = true;
@@ -273,7 +283,7 @@
     if (!hasNotif || !('PushManager' in window)) return 'unsupported';
     const p = Notification.permission;
     if (p === 'denied') return 'denied';
-    if (p === 'granted') return S.state && S.state.push_enabled ? 'ok' : S.pushErr ? 'error' : 'ask';
+    if (p === 'granted') return S.state && S.state.push_enabled ? 'ok' : (S.pushErr || (S.state && S.state.push_error)) ? 'error' : 'ask';
     return 'ask';
   }
   function renderPushBox(done) {
@@ -290,8 +300,8 @@
         <div>Sem isso, você <b>só é chamado com esta página aberta na tela</b>. Toque no botão e depois em <b>Permitir</b>.</div>
         <button class="btn" id="permBtn">PERMITIR NOTIFICAÇÕES</button><p class="msg bad" id="permMsg"></p>`,
       error: `<h3>⚠ O celular não conseguiu ativar os avisos</h3>
-        <div>A permissão foi dada, mas o navegador recusou a inscrição (${escapeHtml(S.pushErr)}). Confira a internet e tente de novo. Se continuar, abra este link no <b>Chrome</b>.</div>
-        <button class="btn" id="permBtn">TENTAR DE NOVO</button><p class="msg bad" id="permMsg"></p>`,
+        <div>As notificações não estão chegando neste celular (${escapeHtml(S.pushErr || (S.state && S.state.push_error) || '')}). Toque em <b>REATIVAR</b>. Se continuar, abra este link no <b>Chrome</b> e confira a internet.</div>
+        <button class="btn" id="permBtn">REATIVAR AVISOS</button><p class="msg bad" id="permMsg"></p>`,
       denied: `<h3>⚠ Notificações bloqueadas neste navegador</h3>
         <div>Você <b>só será chamado com esta página aberta na tela</b>. Para liberar:</div>
         <ol><li>Toque no ícone <b>à esquerda do endereço</b> do site (cadeado ou ajustes).</li>
@@ -308,7 +318,8 @@
       unsupported: `<h3>⚠ Este navegador não recebe notificações</h3>
         <div>Abra o link no <b>Chrome</b> ou deixe esta página aberta na tela, com volume alto.</div>`,
     }[mode];
-    if (box.dataset.mode !== mode) { box.innerHTML = html; box.dataset.mode = mode; }
+    const sig = mode + (mode === 'error' ? (S.pushErr || (S.state && S.state.push_error) || '') : '');
+    if (box.dataset.mode !== sig) { box.innerHTML = html; box.dataset.mode = sig; }
     $('#footNote').textContent = mode === 'ok'
       ? 'Não feche o navegador "à força" (arrastando da lista de apps) e mantenha a internet ligada. No silencioso ou em "Não perturbe" o celular pode não vibrar.'
       : 'Mantenha esta página aberta, com internet ligada. Volume e vibração dependem das configurações do seu celular.';
@@ -322,7 +333,7 @@
       const p = await perm;
       if (p === 'denied') { if (msg) msg.textContent = 'Continua bloqueado. Siga os passos acima e recarregue a página.'; $('#pushBox').dataset.mode = ''; renderChecks(); return; }
       if (p !== 'granted') { if (msg) msg.textContent = 'O celular não mostrou a pergunta. Recarregue a página e toque de novo.'; return; }
-      const ok = await syncPush();
+      const ok = await syncPush(pushMode() === 'error');
       await refresh();
       $('#pushBox').dataset.mode = ''; renderChecks();
       if (!ok && $('#permMsg')) $('#permMsg').textContent = 'Não foi possível ativar. Tente de novo em instantes.';

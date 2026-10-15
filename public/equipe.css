@@ -84,3 +84,6 @@ body.team { background: #0f141b; color: #e9edf3; }
 .pk .txt { font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 8px; border: 1px solid #36404e; background: #0f141b; color: #e9edf3; }
 .alert.prob { --a: #c4241c; }
 .alert.prob .alert-box { animation: none; } /* botões de contato precisam ficar parados para clicar */
+
+.btn.armed { background: #ffb020 !important; border-color: #d48a00 !important; color: #111 !important; font-weight: 900; animation: armpulse .6s ease-in-out infinite alternate; }
+@keyframes armpulse { from { box-shadow: 0 0 0 0 rgba(255,176,32,.6); } to { box-shadow: 0 0 0 6px rgba(255,176,32,0); } }

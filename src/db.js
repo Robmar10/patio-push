@@ -83,7 +83,8 @@ function open(file) {
     ['dock_call_place', 'TEXT'], ['dock_call_text', 'TEXT'],
     ['next_op', 'TEXT'], ['queued_at', 'TEXT'], ['leg', 'INTEGER NOT NULL DEFAULT 1'], ['prev_dock', 'TEXT'],
     ['exited_at', 'TEXT'], ['exited_by', 'TEXT'],
-    ['last_ring_at', 'TEXT'], ['push_receipt_at', 'TEXT'], ['test_ok_at', 'TEXT']]) {
+    ['last_ring_at', 'TEXT'], ['push_receipt_at', 'TEXT'], ['test_ok_at', 'TEXT'],
+    ['last_push_ok_at', 'TEXT'], ['last_push_error', 'TEXT']]) {
     if (!cols.includes(c)) db.exec(`ALTER TABLE visits ADD COLUMN ${c} ${t}`);
   }
   db.exec('UPDATE visits SET queued_at = arrived_at WHERE queued_at IS NULL');
