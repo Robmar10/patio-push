@@ -549,7 +549,11 @@ app.get('/qr/portaria.svg', async (req, res) => {
   res.type('image/svg+xml').send(svg);
 });
 
-app.use(express.static(path.join(ROOT, 'public'), { extensions: ['html'] }));
+// Sempre confere se há versão nova (evita o celular ficar com página antiga depois de uma atualização).
+app.use(express.static(path.join(ROOT, 'public'), {
+  extensions: ['html'],
+  setHeaders: (res, file) => { if (/\.(html|js|css|webmanifest)$/.test(file)) res.setHeader('Cache-Control', 'no-cache'); },
+}));
 
 app.locals.CFG = CFG;
 app.locals.db = db;

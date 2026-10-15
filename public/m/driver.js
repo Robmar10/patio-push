@@ -207,6 +207,8 @@
     return 'ask';
   }
   function renderPushBox(done) {
+    if (!$('#pushBox')) { const d = document.createElement('div'); d.id = 'pushBox'; d.className = 'card pushbox'; $('#checks').before(d); }
+    if (!$('#footNote')) { const n = document.createElement('p'); n.id = 'footNote'; n.className = 'note'; $('#checks').after(n); }
     const box = $('#pushBox');
     if (done) { box.hidden = true; $('#footNote').textContent = ''; return; }
     const mode = pushMode();
