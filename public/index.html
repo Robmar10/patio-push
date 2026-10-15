@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pátio Push · Portaria</title>
   <link rel="icon" href="/m/icon.svg">
-  <link rel="stylesheet" href="/style.css?v=20261015b">
+  <link rel="stylesheet" href="/style.css?v=v3a">
 </head>
 <body>
   <section id="login" class="login" hidden>
@@ -50,10 +50,11 @@
           <label><span id="partnerLbl">Fornecedor / cliente</span><input name="partner" maxlength="80"></label>
           <label>Carga*<input name="cargo" required maxlength="200" placeholder="Ex.: 12 paletes aço bobina / NF 45871"></label>
           <label>Observação<input name="note" maxlength="200"></label>
+          <label class="chk"><input type="checkbox" name="next_op" value="1"> <span id="nextLbl">Operação dupla (Recebimento + Expedição)</span></label>
           <p id="arrErr" class="err"></p>
           <button class="btn primary block">LANÇAR NA FILA E GERAR QR</button>
         </form>
-        <p class="hint">Ao lançar, aparece o QR Code do motorista e a tela do Recebimento/Expedição é avisada — a equipe chama e indica a doca. O motorista precisa de internet no celular enquanto estiver no pátio.</p>
+        <p class="hint">Ao lançar, aparece o QR Code do motorista com a checagem do celular (página aberta, notificações, teste). Libere o motorista para o pátio com as 3 marcas verdes. A equipe é avisada e chama pela tela dela.</p>
       </section>
 
       <!-- DASHBOARD -->
@@ -82,6 +83,6 @@
 
   <div id="modal" class="modal" hidden><div class="modal-card"><div class="mh"><h3 id="mTitle"></h3><button class="x" data-close>×</button></div><div id="mBody" class="mb"></div><div id="mFoot" class="mf"></div></div></div>
   <div id="toasts" class="toasts"></div>
-  <script src="/portaria.js?v=20261015b"></script>
+  <script src="/portaria.js?v=v3a"></script>
 </body>
 </html>

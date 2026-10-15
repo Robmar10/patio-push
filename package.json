@@ -1,6 +1,6 @@
 {
   "name": "patio-push",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Protótipo: controle de pátio e chamada de motoristas por notificação gratuita (QR Code + Web Push)",
   "main": "src/start.js",
   "scripts": {

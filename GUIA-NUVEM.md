@@ -100,23 +100,37 @@
 ## PARTE 4 — Colocar para rodar
 
 **Quem faz o quê:**
-- **Portaria** (`https://SEU-NOME.onrender.com`): lança a chegada e mostra o **QR Code** para o motorista. Não chama ninguém.
-- **Recebimento / Expedição** (`https://SEU-NOME.onrender.com/equipe`): chama o motorista e indica a doca, marca **Encostou na doca**, chama o motorista **de novo com o caminhão na doca** (carga concluída, ir ao caminhão, documentos, mudar de doca) e **libera a saída**.
-- **Motorista**: lê o QR, toca em **ATIVAR ALERTAS** e deixa a página aberta até ser liberado.
+- **Portaria** (`https://SEU-NOME.onrender.com`):
+  - lança a chegada e mostra o **QR Code**;
+  - confere o celular do motorista (3 marcas verdes) antes de liberá-lo;
+  - registra a **saída**.
+- **Recebimento / Expedição** (`https://SEU-NOME.onrender.com/equipe`):
+  - chama o motorista e indica a doca;
+  - manda recados (buscar nota, assinar canhoto, documentos);
+  - chama na doca;
+  - passa o caminhão para a outra equipe;
+  - libera a saída.
+- **Motorista:** lê o QR, toca em **ATIVAR ALERTAS** e depois em **PERMITIR**. Depois disso, **pode bloquear o celular**.
 
 23. No PC da portaria, abra `https://SEU-NOME.onrender.com`, entre com seu nome e o PIN e salve nos **favoritos**.
-24. **QR Code — dois jeitos (os dois funcionam):**
-    - **QR individual:** ao clicar em **LANÇAR NA FILA E GERAR QR**, aparece um QR só daquele motorista. Ele lê com a câmera e cai direto na tela dele, sem digitar nada. O botão **QR** na lista mostra de novo.
-    - **Cartaz fixo:** clique em **Cartaz QR** → **Imprimir cartaz** e fixe na guarita. O motorista lê e digita a placa e os 4 últimos números do celular.
-25. No PC/TV do **Recebimento**, abra `https://SEU-NOME.onrender.com/equipe`, entre com o PIN e toque em **RECEBIMENTO** (o toque libera o som). Faça o mesmo na **Expedição**. Deixe essa tela aberta e com som ligado.
-26. **Teste com celular real** (de preferência no pátio, onde o caminhão espera):
-    1. Portaria: lance uma chegada de **Recebimento** com o seu celular. A tela do Recebimento pisca: **NOVO CAMINHÃO NA FILA** → **CIENTE**.
-    2. Celular: leia o QR individual → **ATIVAR ALERTAS** → **Permitir**.
-    3. Recebimento: **CHAMAR MOTORISTA** → escolha a doca. O celular vibra e toca.
-    4. Celular: **ESTOU INDO**. A tela do Recebimento pisca: **MOTORISTA A CAMINHO**.
-    5. Recebimento: **Encostou na doca** → **CHAMAR MOTORISTA** → **Carga/descarga concluída**. O celular vibra: **RETIRE O CAMINHÃO**.
-    6. Celular: **ESTOU INDO** → Recebimento: **Liberar saída**. O celular mostra **SAÍDA LIBERADA**.
-    7. Repita com o celular **bloqueado** (testa a notificação) e com um **iPhone**.
+24. **QR Code — dois jeitos:**
+    - **QR individual (recomendado):** ao clicar em **LANÇAR NA FILA E GERAR QR**, aparece o QR do motorista e a **checagem do celular ao vivo**:
+      1. Espere ✔ **página aberta** e ✔ **notificações permitidas**.
+      2. Peça ao motorista para **bloquear o celular** e clique em **TESTAR AVISO NO CELULAR**.
+      3. Quando aparecer **TUDO CERTO**, libere o motorista.
+    - **Cartaz fixo:** clique em **Cartaz QR** → **Imprimir cartaz**. O motorista digita a placa e os 4 últimos números do celular.
+25. No PC/TV do **Recebimento**, abra `https://SEU-NOME.onrender.com/equipe`, entre com o PIN e toque em **RECEBIMENTO**. Faça o mesmo na **Expedição**. Deixe essas telas abertas e com som.
+26. **Teste com celular real:**
+    1. **Portaria:** lance um **Recebimento** com o seu celular e marque **Operação dupla**. A tela do Recebimento pisca → **CIENTE**.
+    2. **Celular:** leia o QR → **ATIVAR ALERTAS** → **Permitir**. O quadro tem que ficar **verde**.
+       - Se ficar **vermelho**, siga os passos que aparecem nele. No Samsung: *Configurações → Aplicativos → Chrome → Notificações* ligado e *Bateria → Sem restrições*.
+    3. **Portaria:** **TESTAR AVISO NO CELULAR** com o celular **bloqueado**. Deve aparecer **TUDO CERTO**.
+    4. **Recebimento:** **Recado** → **Buscar nota fiscal** → **ESCRITÓRIO EXPEDIÇÃO**. O celular bloqueado vibra. Toque em **✅ ESTOU INDO** na notificação.
+    5. **Recebimento:** **CHAMAR MOTORISTA** → doca. O cartão mostra **📳 chegou no celular**. Responda **ESTOU INDO**.
+    6. **Recebimento:** **Encostou na doca** → **ENVIAR P/ EXPEDIÇÃO**. O celular mostra "Aguarde a Expedição" e a tela da Expedição pisca.
+    7. **Expedição:** chama → doca → **Encostou** → **CHAMAR MOTORISTA → Carga/descarga concluída** → **Liberar saída**.
+    8. **Portaria:** **REGISTRAR SAÍDA**. O celular mostra "Boa viagem".
+    9. **Teste de falha:** com os **dados móveis desligados**, chame. Em ~75 s a tela da equipe fica **vermelha** com **WhatsApp** e **Ligar**.
 
 ---
 
@@ -154,3 +168,6 @@ Quando eu te enviar uma versão nova:
 | Primeira abertura demora ~1 minuto | O sistema estava dormindo. É normal na camada gratuita. |
 | Portaria volta sozinha para a tela de login | O Render reiniciou o serviço. Entre de novo com o PIN; a fila continua lá. |
 | Celular não vibra | iPhone não vibra por página web. No Android, confira se tocou em **ATIVAR ALERTAS** e se o celular não está no silencioso. |
+| Quadro vermelho "Notificações bloqueadas" no celular | Toque no ícone à esquerda do endereço → Permissões → Notificações → ligar. Se não aparecer: Configurações do Android → Aplicativos → Chrome → Notificações → ligar. Recarregue a página. |
+| Equipe recebe "O CELULAR NÃO RECEBEU A CHAMADA" | Celular sem internet, notificações bloqueadas ou economia de bateria. Avise pelo botão WhatsApp/Ligar e, depois, revise as configurações do celular com o motorista. |
+| Celular abre a página antiga depois de atualizar | Feche a aba e abra o link de novo. A partir da v3, as páginas sempre buscam a versão nova. |

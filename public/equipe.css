@@ -69,3 +69,18 @@ body.team { background: #0f141b; color: #e9edf3; }
 .pk .reason small { display: block; color: #8d97a8; font-weight: 400; margin-top: 2px; }
 .empty { color: #6b7686; padding: 16px; border: 1px dashed #2a3340; border-radius: 12px; }
 @media (max-width: 760px) { .tv { grid-template-columns: 1fr; } .tv .acts { justify-content: flex-start; } .tops { padding: 14px; } }
+
+/* v3: contatos, transferência, recados */
+.cts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.ct { font-size: 12.5px; font-weight: 700; text-decoration: none; border-radius: 6px; padding: 4px 10px; border: 1px solid #36404e; color: #c5ccd7; }
+.ct.wa { border-color: #1f6d3a; color: #7fe0a0; }
+.ct:hover { background: #232b37; }
+.ct.big { font-size: 22px; padding: 14px 22px; border-radius: 12px; border-width: 2px; }
+.ct.big.wa { background: #1fa855; border-color: #1fa855; color: #fff; }
+.ct.big.tel { background: #111; border-color: #111; color: #fff; }
+.a-ct { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
+.btn.tnext { background: #ffb020; border-color: #d48a00; color: #111; font-weight: 900; padding: 10px 16px; }
+.fl .nx { color: #9ec5ff; font-weight: 700; }
+.pk .txt { font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 8px; border: 1px solid #36404e; background: #0f141b; color: #e9edf3; }
+.alert.prob { --a: #c4241c; }
+.alert.prob .alert-box { animation: none; } /* botões de contato precisam ficar parados para clicar */

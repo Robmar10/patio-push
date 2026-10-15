@@ -1,36 +1,56 @@
 'use strict';
-/* Página do motorista: identifica, ativa alertas (gesto obrigatório), recebe a chamada em tempo real
-   (SSE), vibra/toca enquanto não confirmar e envia "ESTOU INDO". Web Push cobre a tela bloqueada. */
+/* Página do motorista: identifica, ativa alertas, recebe chamadas e recados em tempo real (SSE) e por
+   notificação (Web Push, funciona com o celular bloqueado ou em outro app), vibra/toca até ele responder
+   e envia "ESTOU INDO". */
 (() => {
   const $ = (s) => document.querySelector(s);
   const KEY = 'pp_token';
-  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent);
-  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-  const S = { token: null, state: null, es: null, alarm: null, wake: null, audio: null, swReg: null, live: false, lastCall: 0 };
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const hasNotif = 'Notification' in window && 'serviceWorker' in navigator;
+  const S = { token: null, state: null, es: null, alarm: null, alarmKey: null, wake: null, audio: null, live: false, pushErr: '' };
 
   // ---------- token (via QR individual ?t=... ou identificação) ----------
   const qs = new URLSearchParams(location.search);
-  if (qs.get('t')) { try { localStorage.setItem(KEY, qs.get('t')); } catch { /* sem storage */ } history.replaceState(null, '', '/m/'); }
+  if (qs.get('t')) {
+    try { localStorage.setItem(KEY, qs.get('t')); } catch { /* sem storage */ }
+    // No iPhone o link fica na barra: o ícone "Adicionar à Tela de Início" abre com o acesso do motorista.
+    if (!(isIOS && !standalone)) history.replaceState(null, '', '/m/');
+  }
   try { S.token = localStorage.getItem(KEY) || qs.get('t'); } catch { S.token = qs.get('t'); }
 
   const show = (id) => ['vIdent', 'vActivate', 'vMain'].forEach((v) => { $('#' + v).hidden = v !== id; });
 
   async function api(path, body) {
-    const r = await fetch('/api' + path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
+    const r = await fetch('/api' + path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : { cache: 'no-store' });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw Object.assign(new Error(d.error || 'Falha de conexão'), { status: r.status });
     return d;
   }
 
+  function bindToken() {
+    const link = document.querySelector('link[rel=manifest]');
+    if (link && S.token) link.href = '/m/manifest.webmanifest?t=' + encodeURIComponent(S.token);
+    if ('serviceWorker' in navigator && S.token) {
+      navigator.serviceWorker.ready.then((reg) => reg.active && reg.active.postMessage({ type: 'token', token: S.token })).catch(() => {});
+    }
+  }
+
   async function boot() {
     if (!S.token) return show('vIdent');
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/m/sw.js', { scope: '/m/' }).then((r) => { S.swReg = r; }).catch(() => {});
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/m/sw.js', { scope: '/m/' }).catch(() => {});
     try {
       const st = await api('/driver/state?t=' + encodeURIComponent(S.token));
       S.state = st;
+      bindToken();
       $('#helloName').textContent = `Olá, ${st.first_name}!`;
       if (['ATENDIDO', 'FINALIZADO', 'CANCELADO'].includes(st.status)) { show('vMain'); render(); connect(); return; }
-      $('#activateBtn').textContent = 'ATIVAR ALERTAS';
+      // Já permitiu antes (ex.: abriu pela notificação): vai direto, sem pedir de novo.
+      if (hasNotif && Notification.permission === 'granted') {
+        await syncPush();
+        show('vMain'); render(); connect();
+        return;
+      }
       show('vActivate');
     } catch (e) {
       if (e.status === 404) { try { localStorage.removeItem(KEY); } catch { /* */ } S.token = null; show('vIdent'); $('#identErr').textContent = 'Seu acesso anterior terminou. Identifique-se novamente.'; }
@@ -48,41 +68,69 @@
     } catch (err) { $('#identErr').textContent = err.message; }
   });
 
+  // ---------- permissão de notificação ----------
+  // Precisa ser chamada DIRETO no toque do motorista (antes de qualquer espera); senão alguns Android
+  // tratam o pedido como "sem gesto" e bloqueiam ou escondem a pergunta.
+  function askPermission() {
+    if (!hasNotif) return Promise.resolve('unsupported');
+    if (Notification.permission !== 'default') return Promise.resolve(Notification.permission);
+    try {
+      const p = Notification.requestPermission();
+      return p && typeof p.then === 'function' ? p : Promise.resolve(Notification.permission);
+    } catch { return Promise.resolve(Notification.permission); }
+  }
+  // Inscreve este celular para receber notificações (não pergunta nada se a permissão já foi dada).
+  async function syncPush() {
+    S.pushErr = '';
+    if (!hasNotif || Notification.permission !== 'granted' || !('PushManager' in window)) return false;
+    try {
+      await navigator.serviceWorker.register('/m/sw.js', { scope: '/m/' });
+      const reg = await navigator.serviceWorker.ready;
+      const { publicKey } = await api('/push/key');
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(publicKey) });
+      await api('/driver/push-subscribe', { token: S.token, subscription: sub.toJSON() });
+      bindToken();
+      if (S.state) S.state.push_enabled = true;
+      return true;
+    } catch (e) {
+      S.pushErr = (e && (e.message || e.name)) || 'erro desconhecido';
+      console.warn('push indisponível:', e);
+      return false;
+    }
+  }
+  function b64ToU8(b) { const p = '='.repeat((4 - (b.length % 4)) % 4); const s = atob((b + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(s, (c) => c.charCodeAt(0)); }
+
   // ---------- ativação (precisa do toque do motorista) ----------
+  function unlockAudio() {
+    try { if (!S.audio) S.audio = new (window.AudioContext || window.webkitAudioContext)(); S.audio.resume(); } catch { S.audio = null; }
+  }
+  document.addEventListener('pointerdown', () => { if (!S.audio) { unlockAudio(); renderChecks(); } }, { passive: true });
+
   $('#activateBtn').addEventListener('click', async () => {
-    // 1) vibração e som só são liberados após um gesto do usuário
+    const perm = askPermission(); // 1º: o pedido de permissão, ainda dentro do toque
     try { navigator.vibrate && navigator.vibrate(150); } catch { /* */ }
-    try { S.audio = new (window.AudioContext || window.webkitAudioContext)(); await S.audio.resume(); } catch { S.audio = null; }
-    // 2) manter a tela ligada enquanto espera (aumenta muito a chance de vibrar)
-    await keepAwake();
-    // 3) notificação + Web Push (para tela bloqueada / página em segundo plano)
-    await enablePush();
+    unlockAudio();
+    $('#activateBtn').disabled = true;
+    await perm;
+    await syncPush();
+    keepAwake();
+    $('#activateBtn').disabled = false;
     show('vMain'); render(); connect();
   });
 
   async function keepAwake() {
-    try { if ('wakeLock' in navigator) { S.wake = await navigator.wakeLock.request('screen'); S.wake.addEventListener('release', () => { S.wake = null; renderChecks(); }); } } catch { S.wake = null; }
+    try { if ('wakeLock' in navigator && !S.wake) { S.wake = await navigator.wakeLock.request('screen'); S.wake.addEventListener('release', () => { S.wake = null; renderChecks(); }); } } catch { S.wake = null; }
+    renderChecks();
   }
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && !S.wake && S.audio) keepAwake().then(renderChecks); if (!document.hidden) refresh(); });
-
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    if (S.audio) keepAwake();
+    refresh();
+  });
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', (ev) => { if (ev.data && ev.data.type === 'push') refresh(); });
   }
-
-  async function enablePush() {
-    if (!('serviceWorker' in navigator) || !('Notification' in window)) return;
-    try {
-      S.swReg = await navigator.serviceWorker.register('/m/sw.js', { scope: '/m/' });
-      const perm = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission;
-      if (perm !== 'granted' || !('PushManager' in window)) return;
-      const { publicKey } = await api('/push/key');
-      const reg = await navigator.serviceWorker.ready;
-      let sub = await reg.pushManager.getSubscription();
-      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(publicKey) });
-      await api('/driver/push-subscribe', { token: S.token, subscription: sub.toJSON() });
-    } catch (e) { console.warn('push indisponível:', e); }
-  }
-  function b64ToU8(b) { const p = '='.repeat((4 - (b.length % 4)) % 4); const s = atob((b + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(s, (c) => c.charCodeAt(0)); }
 
   // ---------- tempo real ----------
   function connect() {
@@ -92,23 +140,18 @@
     es.onopen = () => { S.live = true; renderChecks(); };
     es.onerror = () => { S.live = false; renderChecks(); };
     es.addEventListener('state', (ev) => { S.state = JSON.parse(ev.data); render(); });
-    es.addEventListener('call', () => { S.lastCall = 0; S.alarmKey = null; stopAlarm(); refresh(); });
+    es.addEventListener('call', () => { S.alarmKey = null; stopAlarm(); refresh(); });
   }
   async function refresh() { if (!S.token) return; try { S.state = await api('/driver/state?t=' + encodeURIComponent(S.token)); render(); } catch { /* */ } }
-  setInterval(() => { if (!S.live) refresh(); }, 15000);
+  setInterval(() => { if (!S.live && !$('#vMain').hidden) refresh(); }, 15000);
 
-  // ---------- alarme (vibração + som repetidos até "ESTOU INDO") ----------
+  // ---------- alarme da página aberta (vibração + som repetidos até "ESTOU INDO") ----------
   function startAlarm() {
     if (S.alarm) return;
     const t0 = Date.now();
     const ring = () => {
-      try { navigator.vibrate && navigator.vibrate([800, 250, 800, 250, 1200]); } catch { /* */ }
-      beep();
-      // Com o celular bloqueado ou em outro app, quem avisa é a notificação enviada pelo servidor (repete a cada 30 s).
-      if (document.hidden && !S.state.push_enabled && Notification.permission === 'granted' && S.swReg && Date.now() - S.lastCall > 20000) {
-        S.lastCall = Date.now();
-        S.swReg.showNotification(`CHAMADA: ${S.state.dock}`, { body: `${$('#headline').textContent}. ${$('#subline').textContent}`, tag: 'chamada', renotify: true, requireInteraction: true, vibrate: [800, 250, 800, 250, 1200] }).catch(() => {});
-      }
+      if (!document.hidden) { try { navigator.vibrate && navigator.vibrate([800, 250, 800, 250, 1200]); } catch { /* */ } beep(); }
+      // Com o celular bloqueado ou em outro app, quem avisa é a notificação do servidor (repete a cada 30 s).
     };
     ring();
     const loop = () => { S.alarm = setTimeout(() => { ring(); loop(); }, Date.now() - t0 < 120000 ? 3500 : 15000); };
@@ -130,21 +173,14 @@
     stopAlarm();
     $('#ackBtn').disabled = true;
     try { S.state = await api('/driver/ack', { token: S.token }); render(); }
-    catch { $('#subline').textContent = 'Não foi possível confirmar (sem internet?). Siga para a doca e avise a equipe.'; }
+    catch { $('#subline').textContent = 'Não foi possível confirmar (sem internet?). Vá até o local indicado e avise a equipe.'; }
     finally { $('#ackBtn').disabled = false; }
   });
 
   // ---------- tela ----------
   const TYPE = { RECEBIMENTO: 'Recebimento', EXPEDICAO: 'Expedição' };
-  // Textos da chamada feita com o caminhão já na doca.
-  const DOCK_CALL = {
-    CONCLUIDO: { head: 'RETIRE O CAMINHÃO', text: (d) => `Carga/descarga concluída. Retire o caminhão da ${d}.` },
-    CAMINHAO: { head: 'VÁ ATÉ O CAMINHÃO', text: (d) => `Compareça ao seu caminhão na ${d}.` },
-    DOCUMENTOS: { head: 'LEVE OS DOCUMENTOS', text: (d) => `Apresente a nota fiscal / documentos na ${d}.` },
-    MUDAR: { head: 'MUDE DE DOCA', text: (d) => `Leve o caminhão para a ${d}.` },
-  };
   // Uma "chave" por chamada: quando muda, o alarme recomeça do zero.
-  const callKey = (s) => (s.status === 'CHAMADO' ? 'c' + s.call_count : s.dock_call_pending && s.dock_call ? 'd' + s.dock_call.at : null);
+  const callKey = (s) => (s.status === 'CHAMADO' ? 'c' + s.call_count : s.msg && s.msg.pending ? 'm' + s.msg.at : null);
 
   function render() {
     const s = S.state; if (!s) return;
@@ -152,26 +188,33 @@
     const box = $('#state'); const ack = $('#ackBtn');
     const set = (cls, k, h, sub, title) => { box.className = 'state ' + cls; $('#kicker').textContent = k; $('#headline').textContent = h; $('#subline').textContent = sub; document.title = title; };
     ack.hidden = true;
-    if (s.status === 'AGUARDANDO') {
-      set('wait', 'AGUARDE SUA CHAMADA', s.position ? `${s.position}º na fila` : 'Você está na fila', `O ${s.team || 'time'} vai chamar você. O celular vai vibrar e tocar.`, 'Aguardando chamada');
+    const team = s.team || 'equipe';
+    const m = s.msg;
+    if ((s.status === 'AGUARDANDO' || s.status === 'NA_DOCA') && m && m.pending) {
+      set('call', s.status === 'NA_DOCA' ? 'CHAMADO NA DOCA' : 'RECADO DA EQUIPE', m.head, m.text, `🔔 ${m.head}`);
+      ack.hidden = false;
+    } else if (s.status === 'AGUARDANDO') {
+      const pos = s.position ? `${s.position}º na fila` : 'Você está na fila';
+      if (s.leg > 1) {
+        set('wait', `AGUARDE A ${team.toUpperCase()}`, pos, s.prev_dock ? `Libere a ${s.prev_dock} e aguarde no pátio. A ${team} vai chamar você.` : `Agora quem chama você é a ${team}.`, 'Aguardando chamada');
+      } else {
+        set('wait', 'AGUARDE SUA CHAMADA', pos, `O ${team} vai chamar você. O celular vai vibrar e tocar.`, 'Aguardando chamada');
+      }
     } else if (s.status === 'CHAMADO') {
       set('call', s.call_count > 1 ? `CHAMADA REPETIDA (${s.call_count}ª)` : 'SUA VEZ!', `COMPAREÇA À ${s.dock}`, `Caminhão ${s.plate}`, `🔔 ${s.dock}`);
       ack.hidden = false;
     } else if (s.status === 'CONFIRMADO') {
-      set('go', 'CONFIRMADO', `Siga para a ${s.dock}`, `O ${s.team || 'time'} recebeu sua confirmação.`, `A caminho da ${s.dock}`);
+      set('go', 'CONFIRMADO', `Siga para a ${s.dock}`, `O ${team} recebeu sua confirmação.`, `A caminho da ${s.dock}`);
     } else if (s.status === 'NA_DOCA') {
-      if (s.dock_call_pending && s.dock_call) {
-        const r = DOCK_CALL[s.dock_call.reason] || DOCK_CALL.CAMINHAO;
-        set('call', 'CHAMADO NA DOCA', s.dock_call.reason === 'MUDAR' ? `VÁ PARA A ${s.dock}` : r.head, r.text(s.dock), `🔔 ${r.head}`);
-        ack.hidden = false;
-      } else {
-        set('dock', 'NA DOCA', s.dock, 'Aguarde com esta tela aberta: a equipe pode chamar você aqui.', `Na ${s.dock}`);
-      }
+      set('dock', 'NA DOCA', s.dock, s.next_team ? `Depois desta etapa você vai para a ${s.next_team}. A equipe avisa por aqui.` : 'A equipe pode chamar você por aqui (carga pronta, documentos, canhoto).', `Na ${s.dock}`);
     } else {
       const done = s.status === 'FINALIZADO' || s.status === 'ATENDIDO';
-      set('end', done ? 'SAÍDA LIBERADA' : 'AUTORIZAÇÃO ENCERRADA', done ? 'Bom trabalho!' : 'Procure a portaria', 'Você já pode fechar esta página.', done ? 'Saída liberada' : 'Encerrado');
-      if (S.es) S.es.close();
-      try { localStorage.removeItem(KEY); } catch { /* */ }
+      if (done && !s.exited) set('go', 'SAÍDA LIBERADA', 'Pode sair', 'Apresente-se na portaria com o caminhão.', 'Saída liberada');
+      else set('end', done ? 'SAÍDA REGISTRADA' : 'AUTORIZAÇÃO ENCERRADA', done ? 'Boa viagem!' : 'Procure a portaria', 'Você já pode fechar esta página.', done ? 'Boa viagem' : 'Encerrado');
+      if (s.exited || !done) {
+        if (S.es) S.es.close();
+        try { localStorage.removeItem(KEY); } catch { /* */ }
+      }
     }
     const key = callKey(s);
     if (key) { if (S.alarmKey !== key) { stopAlarm(); S.alarmKey = key; } startAlarm(); } else { stopAlarm(); S.alarmKey = null; }
@@ -179,17 +222,14 @@
   }
 
   function renderChecks() {
+    if ($('#vMain').hidden) return;
     const s = S.state || {};
     const items = [];
     const done = ['ATENDIDO', 'FINALIZADO', 'CANCELADO'].includes(s.status);
     if (!done) {
       items.push([S.live, S.live ? 'Conectado à portaria (internet ok)' : 'Sem conexão — verifique a internet do celular']);
-      if ('vibrate' in navigator) items.push([!!S.audio, S.audio ? 'Vibração e som ativados' : 'Toque em ATIVAR ALERTAS para vibrar']);
-      else items.push([false, isIOS ? 'iPhone não vibra por páginas web: deixe o volume alto e esta tela aberta' : 'Este navegador não permite vibrar: deixe o volume alto']);
-      const perm = ('Notification' in window) ? Notification.permission : 'unsupported';
-      items.push([perm === 'granted' || s.push_enabled, perm === 'granted' ? 'Notificações permitidas (avisa com tela bloqueada)'
-        : isIOS && !standalone ? 'iPhone: para avisar com tela bloqueada, use Compartilhar → Adicionar à Tela de Início'
-          : perm === 'denied' ? 'Notificações bloqueadas — mantenha esta tela aberta' : 'Notificações não ativadas — mantenha esta tela aberta']);
+      if ('vibrate' in navigator) items.push([!!S.audio, S.audio ? 'Som e vibração da página ativados' : 'Toque na tela uma vez para liberar o som']);
+      else items.push([false, isIOS ? 'iPhone não vibra por páginas web: deixe o volume alto' : 'Este navegador não vibra: deixe o volume alto']);
       if (pushMode() !== 'ok') items.push([!!S.wake, S.wake ? 'Tela mantida ligada' : 'A tela pode apagar — evite bloquear o celular']);
     }
     $('#checks').innerHTML = items.map(([ok, t]) => `<li class="${ok ? '' : 'no'}">${t}</li>`).join('');
@@ -199,16 +239,14 @@
 
   // ---------- quadro "chamada com o celular bloqueado" ----------
   function pushMode() {
-    if (!('Notification' in window) || !('serviceWorker' in navigator)) return isIOS && !standalone ? 'ios-home' : 'unsupported';
     if (isIOS && !standalone) return 'ios-home';
+    if (!hasNotif || !('PushManager' in window)) return 'unsupported';
     const p = Notification.permission;
-    if (p === 'granted' && S.state && S.state.push_enabled) return 'ok';
     if (p === 'denied') return 'denied';
+    if (p === 'granted') return S.state && S.state.push_enabled ? 'ok' : S.pushErr ? 'error' : 'ask';
     return 'ask';
   }
   function renderPushBox(done) {
-    if (!$('#pushBox')) { const d = document.createElement('div'); d.id = 'pushBox'; d.className = 'card pushbox'; $('#checks').before(d); }
-    if (!$('#footNote')) { const n = document.createElement('p'); n.id = 'footNote'; n.className = 'note'; $('#checks').after(n); }
     const box = $('#pushBox');
     if (done) { box.hidden = true; $('#footNote').textContent = ''; return; }
     const mode = pushMode();
@@ -219,31 +257,45 @@
         <div>Pode usar outros aplicativos ou bloquear a tela. A chamada chega como <b>notificação com vibração</b> e se repete até você responder. Dá para tocar em <b>ESTOU INDO</b> direto na notificação.</div>
         <button class="btn alt" id="testBtn">TESTAR AVISO</button><p class="msg" id="testMsg"></p>`,
       ask: `<h3>⚠ Falta permitir as notificações</h3>
-        <div>Sem isso, você <b>só é chamado com esta página aberta na tela</b>.</div>
-        <button class="btn" id="permBtn">PERMITIR NOTIFICAÇÕES</button>`,
-      denied: `<h3>⚠ Notificações bloqueadas</h3>
+        <div>Sem isso, você <b>só é chamado com esta página aberta na tela</b>. Toque no botão e depois em <b>Permitir</b>.</div>
+        <button class="btn" id="permBtn">PERMITIR NOTIFICAÇÕES</button><p class="msg bad" id="permMsg"></p>`,
+      error: `<h3>⚠ O celular não conseguiu ativar os avisos</h3>
+        <div>A permissão foi dada, mas o navegador recusou a inscrição (${escapeHtml(S.pushErr)}). Confira a internet e tente de novo. Se continuar, abra este link no <b>Chrome</b>.</div>
+        <button class="btn" id="permBtn">TENTAR DE NOVO</button><p class="msg bad" id="permMsg"></p>`,
+      denied: `<h3>⚠ Notificações bloqueadas neste navegador</h3>
         <div>Você <b>só será chamado com esta página aberta na tela</b>. Para liberar:</div>
-        <ol><li>Toque no <b>cadeado</b> (ou nos ⋮ três pontos) ao lado do endereço do site.</li>
-        <li>Toque em <b>Permissões</b> ou <b>Configurações do site</b> → <b>Notificações</b> → <b>Permitir</b>.</li>
-        <li>Volte aqui e toque no botão abaixo.</li></ol>
-        <button class="btn" id="permBtn">JÁ LIBEREI</button>`,
+        <ol><li>Toque no ícone <b>à esquerda do endereço</b> do site (cadeado ou ajustes).</li>
+        <li>Toque em <b>Permissões</b> → <b>Notificações</b> → ligue. Se aparecer, toque em <b>Redefinir permissões</b>.</li>
+        <li>Não aparece ou está cinza? Em <b>Configurações do celular</b> → <b>Aplicativos</b> → <b>Chrome</b> (ou o navegador que abriu esta página) → <b>Notificações</b> → ligue.</li>
+        <li>Volte e <b>recarregue a página</b> (puxe a tela para baixo).</li></ol>
+        <button class="btn" id="permBtn">JÁ LIBEREI</button><p class="msg bad" id="permMsg"></p>`,
       'ios-home': `<h3>⚠ iPhone: falta um passo</h3>
         <div>Para ser chamado com o celular bloqueado:</div>
         <ol><li>Toque em <b>Compartilhar</b> (quadrado com seta ↑) no Safari.</li>
         <li>Toque em <b>Adicionar à Tela de Início</b> → <b>Adicionar</b>.</li>
-        <li>Abra pelo novo ícone <b>P</b>, informe placa e celular e toque em <b>ATIVAR ALERTAS</b> → <b>Permitir</b>.</li></ol>
+        <li>Abra pelo novo ícone <b>Chamada</b> e toque em <b>ATIVAR ALERTAS</b> → <b>Permitir</b>.</li></ol>
         <div>Até lá, deixe esta página aberta e o volume alto.</div>`,
       unsupported: `<h3>⚠ Este navegador não recebe notificações</h3>
         <div>Abra o link no <b>Chrome</b> ou deixe esta página aberta na tela, com volume alto.</div>`,
     }[mode];
     if (box.dataset.mode !== mode) { box.innerHTML = html; box.dataset.mode = mode; }
     $('#footNote').textContent = mode === 'ok'
-      ? 'Não feche o navegador "à força" (arrastando da lista de apps) e mantenha a internet ligada. Celular no silencioso ou em "Não perturbe" pode não vibrar.'
+      ? 'Não feche o navegador "à força" (arrastando da lista de apps) e mantenha a internet ligada. No silencioso ou em "Não perturbe" o celular pode não vibrar.'
       : 'Mantenha esta página aberta, com internet ligada. Volume e vibração dependem das configurações do seu celular.';
   }
+  function escapeHtml(t) { return String(t || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
   document.addEventListener('click', async (e) => {
     if (e.target.id === 'permBtn') {
-      await enablePush(); await refresh(); $('#pushBox').dataset.mode = ''; renderChecks();
+      const perm = askPermission(); // ainda dentro do toque
+      const msg = $('#permMsg');
+      const p = await perm;
+      if (p === 'denied') { if (msg) msg.textContent = 'Continua bloqueado. Siga os passos acima e recarregue a página.'; $('#pushBox').dataset.mode = ''; renderChecks(); return; }
+      if (p !== 'granted') { if (msg) msg.textContent = 'O celular não mostrou a pergunta. Recarregue a página e toque de novo.'; return; }
+      const ok = await syncPush();
+      await refresh();
+      $('#pushBox').dataset.mode = ''; renderChecks();
+      if (!ok && $('#permMsg')) $('#permMsg').textContent = 'Não foi possível ativar. Tente de novo em instantes.';
     } else if (e.target.id === 'testBtn') {
       const msg = $('#testMsg');
       try {

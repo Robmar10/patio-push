@@ -78,9 +78,15 @@ function open(file) {
   const cols = db.prepare('PRAGMA table_info(visits)').all().map((c) => c.name);
   for (const [c, t] of [['team_alert_at', 'TEXT'], ['team_alert_kind', 'TEXT'], ['team_ack_at', 'TEXT'], ['team_ack_by', 'TEXT'],
     ['docked_at', 'TEXT'], ['finished_at', 'TEXT'], ['dock_call_reason', 'TEXT'], ['dock_call_at', 'TEXT'], ['dock_call_acked_at', 'TEXT'],
-    ['dock_call_count', 'INTEGER NOT NULL DEFAULT 0'], ['handled_by', 'TEXT']]) {
+    ['dock_call_count', 'INTEGER NOT NULL DEFAULT 0'], ['handled_by', 'TEXT'],
+    // v3: recados com local, transferência entre equipes, saída na portaria, confirmação de entrega no celular
+    ['dock_call_place', 'TEXT'], ['dock_call_text', 'TEXT'],
+    ['next_op', 'TEXT'], ['queued_at', 'TEXT'], ['leg', 'INTEGER NOT NULL DEFAULT 1'], ['prev_dock', 'TEXT'],
+    ['exited_at', 'TEXT'], ['exited_by', 'TEXT'],
+    ['last_ring_at', 'TEXT'], ['push_receipt_at', 'TEXT'], ['test_ok_at', 'TEXT']]) {
     if (!cols.includes(c)) db.exec(`ALTER TABLE visits ADD COLUMN ${c} ${t}`);
   }
+  db.exec('UPDATE visits SET queued_at = arrived_at WHERE queued_at IS NULL');
   if (db.prepare('SELECT COUNT(*) n FROM docks').get().n === 0) {
     const ins = db.prepare('INSERT INTO docks (name, sort) VALUES (?, ?)');
     for (let i = 1; i <= 10; i++) ins.run(`DOCA ${String(i).padStart(2, '0')}`, i);

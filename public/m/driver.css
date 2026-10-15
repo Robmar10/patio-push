@@ -43,3 +43,5 @@ input:focus { outline: none; border-color: var(--blue); }
 .pushbox .btn { font-size: 16px; padding: 14px; }
 .pushbox .btn.alt { background: #fff; color: var(--ink); border: 2px solid var(--ink); }
 .pushbox .msg { margin: 0; font-weight: 650; color: var(--green); min-height: 1em; }
+.pushbox .msg.bad { color: #c4241c; }
+.btn:disabled { opacity: .6; }

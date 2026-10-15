@@ -124,3 +124,13 @@ tr.flash td { animation: flash 1.6s ease-out; }
 @media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } .arrival { position: static; } .kpis { display: none; } }
 
 .storage-warn { background: #c4241c; color: #fff; padding: 8px 18px; font-size: 13px; font-weight: 650; }
+
+/* v3: operação dupla, checagem do celular no QR, saída */
+label.chk { flex-direction: row; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; }
+label.chk input { width: 18px; height: 18px; margin: 0; }
+.qrlive ul { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.qrlive b.ok { color: var(--green); } .qrlive b.no, .qrlive .no { color: var(--red); }
+.qrlive b { display: inline-block; width: 18px; }
+.qrok { background: #e6f5ea; color: var(--green); font-weight: 800; border-radius: 8px; padding: 10px 12px; }
+.kpis .kx b { color: #ffc24d; }
+.st.FINALIZADO { background: #e6f5ea; color: var(--green); }

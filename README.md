@@ -1,117 +1,125 @@
-# PÁTIO PUSH — protótipo (trial) de controle de pátio e chamada gratuita de motoristas
+# PÁTIO PUSH — controle de pátio e chamada gratuita de motoristas (v3)
 
-Fluxo: **Portaria lança a chegada** (autorização R-0001 / E-0002) e mostra o **QR Code** → a tela do **Recebimento/Expedição**
-pisca → **motorista lê o QR** e fica aguardando no celular → a **equipe chama e indica a doca** → o **celular vibra e toca** →
-motorista toca **ESTOU INDO** → equipe marca **Encostou na doca** → pode **chamar de novo na doca** (carga concluída,
-ir ao caminhão, documentos, mudar de doca) → **Liberar saída**.
+**Fluxo:** a **Portaria lança a chegada** (autorização R-0001 / E-0002), mostra o **QR Code** e confere o celular do
+motorista (3 marcas verdes). A tela do **Recebimento/Expedição** pisca. A **equipe chama e indica a doca**: o celular
+**vibra e toca, mesmo bloqueado ou em outro app**. O motorista toca **ESTOU INDO** (na página ou direto na notificação).
+Depois a equipe marca **Encostou na doca**, pode **chamar de novo ou mandar recados** (carga concluída, buscar nota,
+assinar canhoto, documentos, mudar de doca, texto livre) e pode **passar o caminhão para a outra equipe**
+(descarregou no Recebimento → carrega na Expedição). Por fim, **Liberar saída**, e a **portaria registra a saída**.
 
-**Sem custo por mensagem** (não usa SMS). Em troca, há duas condições que o SMS não tinha:
+**Sem custo por mensagem** (não usa SMS). O plano B, quando o celular não recebe, é o **WhatsApp/telefone com um clique**.
 
-1. **O celular do motorista precisa de internet** (dados móveis ou Wi-Fi) durante a espera. Consumo: poucos kB.
-2. **Vibração com tela bloqueada** só acontece se o motorista **permitiu notificações**. Com a página aberta na tela,
-   vibra e toca sem precisar dessa permissão (depois que ele toca em *ATIVAR ALERTAS*).
+## O que mudou na v3
 
-> Este é um protótipo para validar o conceito. Foi testado ponta a ponta em navegador com celular emulado
-> (cadastro → QR → chamada → vibração → "estou indo"). **Ainda não foi testado em celulares reais** —
-> faça o roteiro da seção 4 antes de usar na operação.
+| Problema encontrado | O que a v3 faz |
+|---|---|
+| Ninguém sabia se a notificação **chegou** no celular ("enviada" só quer dizer que o Google recebeu) | O celular confirma a chegada. A equipe vê **📳 chegou no celular 14:02** |
+| Chamada que não chega = caminhão que "some" | **Vigia de 75 s:** se não chegou ou ninguém respondeu, a tela da equipe pisca em vermelho com **WhatsApp** e **Ligar** prontos |
+| Motorista saía da guarita com o celular sem notificação | O QR da portaria mostra **3 checagens ao vivo** (página aberta, notificações, teste) e o botão **TESTAR AVISO** |
+| No Android, o pedido de permissão era feito tarde e podia ser bloqueado | A permissão é pedida **no instante do toque**, e a tela explica como desbloquear, inclusive nas configurações do Android |
+| Motorista precisava ficar com a tela aberta | A notificação **se repete a cada 30 s (até 5 min)** e tem o botão **✅ ESTOU INDO** |
+| Material que descarrega no Recebimento e carrega na Expedição | **Operação dupla** no cadastro e botão **ENVIAR P/ EXPEDIÇÃO**. O caminhão volta para a fila da outra equipe, que é avisada |
+| Chamar para buscar nota ou assinar canhoto | **Recados** com local (doca, escritório do Recebimento/Expedição, portaria), **também com o caminhão na fila** |
+| Sem controle de saída | **Registrar saída** na portaria, com indicador **tempo no pátio** |
+| iPhone perdia o acesso ao adicionar à Tela de Início | O ícone abre já identificado |
+| Celular abria versão antiga da página depois de atualizar | Páginas sempre conferem se há versão nova |
 
 ## 0. Colocar na nuvem (sem instalar nada)
 
-Para usar de verdade, com endereço fixo e HTTPS, sem instalar programas nem acionar a TI, siga o **GUIA-NUVEM.md**
-(GitHub + Render + Neon, todos gratuitos). As seções abaixo são para rodar localmente.
+Siga o **GUIA-NUVEM.md** (GitHub + Render + Neon, todos gratuitos).
+**Para atualizar uma instalação existente:** no GitHub → *Add file → Upload files* → arraste as pastas `src` e `public`
+(e os demais arquivos da raiz, se vierem no pacote) → *Commit changes*. O banco é migrado sozinho e os dados continuam.
 
-## 1. Como rodar no seu computador
+## 1. Telas
 
-Requisito: **Node.js 22.5 ou superior** (https://nodejs.org).
+| Endereço | Quem usa | Para quê |
+|---|---|---|
+| `/` | Portaria | Lançar chegada, QR + checagem do celular, acompanhar o pátio, registrar saída |
+| `/equipe` | Recebimento / Expedição (PC ou TV) | Chamar, recados, doca, transferir, liberar saída |
+| `/m/` | Motorista (celular) | Receber chamadas e recados |
+| `/cartaz` | Portaria | QR fixo para imprimir (alternativa ao QR individual) |
 
-```
-npm install
-copy .env.example .env      (Linux/macOS: cp .env.example .env)
-npm start
-```
+## 2. Operação passo a passo
 
-- Portaria / dashboard: `http://localhost:3100` — entre com seu nome e o PIN (padrão **1234**; troque em `PORTARIA_PIN` no `.env`).
-- Cartaz do QR Code fixo para imprimir: `http://localhost:3100/cartaz`
-- Página do motorista: `/m/`
+**Portaria:**
+1. Escolha RECEBIMENTO ou EXPEDIÇÃO e preencha os dados. Se o caminhão vai fazer as duas operações, marque **Operação dupla**.
+2. Clique em **LANÇAR NA FILA E GERAR QR**. O motorista lê o QR, toca em **ATIVAR ALERTAS** e depois em **PERMITIR**.
+3. Na janela do QR, espere ficar ✔ em **página aberta** e **notificações permitidas**. Peça para ele **bloquear o celular** e clique em **TESTAR AVISO NO CELULAR**.
+   Quando aparecer **TUDO CERTO**, libere o motorista para o pátio.
+   - Sem câmera: **Enviar link por WhatsApp**.
+   - Notificações bloqueadas: a tela do motorista mostra como liberar. Se não der, a equipe vai usar o WhatsApp.
+4. Quando a equipe libera, a linha fica **Liberado — sair**. Na saída, clique em **REGISTRAR SAÍDA**.
 
-## 2. Por que precisa de HTTPS para testar no celular
+**Recebimento / Expedição (`/equipe`):**
+- **Na fila:**
+  - **CHAMAR MOTORISTA** → doca.
+  - **Recado** → buscar nota fiscal, assinar canhoto, documentos ou texto livre → local.
+  - **Passar p/ a outra equipe**, se a portaria lançou na equipe errada.
+- **Chamados:** **Rechamar**, **Trocar doca**, **Encostou na doca** e **Voltar para a fila**.
+- **Na doca:**
+  - **CHAMAR MOTORISTA** → carga concluída, ir ao caminhão, mudar de doca, nota, canhoto, documentos ou texto livre.
+  - **ENVIAR P/ EXPEDIÇÃO** (ou Recebimento): aparece em destaque quando o caminhão foi lançado como operação dupla.
+  - **Liberar saída.**
+- Cada cartão mostra:
+  - se a chamada **chegou no celular** (📳);
+  - se ele **respondeu** (✔);
+  - os botões **WhatsApp** e **Ligar**, com a mensagem pronta.
+- **Alerta vermelho** "O CELULAR NÃO RECEBEU A CHAMADA" ou "MOTORISTA NÃO RESPONDEU": avise pelo WhatsApp ou ligue, depois **CIENTE — VOU AVISAR**.
 
-Os navegadores dos celulares **só liberam notificação, Web Push e “manter tela ligada” em sites HTTPS**.
-Em `http://192.168.x.x` a página abre e recebe a chamada, mas a notificação com tela bloqueada não funciona.
+**Motorista:**
+- Depois de permitir as notificações, **pode bloquear o celular ou usar outros apps**.
+- A chamada chega como notificação com vibração e se repete até ele responder. Ele pode tocar em **✅ ESTOU INDO** na própria notificação.
 
-Jeito gratuito e rápido de ter HTTPS (sem conta, para teste):
+## 3. Roteiro de teste com celulares reais
 
-1. Instale o **cloudflared** (https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/).
-2. Com o sistema rodando, execute: `cloudflared tunnel --url http://localhost:3100`
-3. Ele mostra um endereço `https://xxxx.trycloudflare.com`. Coloque em `PUBLIC_URL=` no `.env` e reinicie (`npm start`).
-4. Abra a portaria por esse endereço e imprima o cartaz de novo (o QR passa a apontar para o HTTPS).
-
-O endereço do túnel rápido muda a cada execução — serve para teste. Para uso contínuo, use um túnel nomeado
-da Cloudflare com domínio da empresa ou hospede em um servidor com HTTPS.
-
-## 3. Operação
-
-**Portaria — nova chegada:** escolha RECEBIMENTO ou EXPEDIÇÃO, preencha motorista, celular, placa, transportadora,
-fornecedor/cliente e carga → **AUTORIZAR ENTRADA NA FILA**. Aparece a autorização e um **QR individual**:
-o motorista lê esse QR e já cai na tela dele, sem digitar nada.
-
-Alternativa: o motorista lê o **cartaz fixo** e digita a placa + 4 últimos números do celular.
-
-**Motorista:** toca em **ATIVAR ALERTAS** e em **Permitir** notificações. A tela mostra a posição na fila.
-
-**Chamar (tela Recebimento/Expedição, `/equipe`):** **CHAMAR MOTORISTA** → escolha a doca. O aviso diz como a chamada foi entregue:
-- *página aberta (vibrando)*: o celular está vibrando e tocando a cada 3,5 s até ele tocar em ESTOU INDO;
-- *notificação enviada*: página fechada, mas o celular recebeu a notificação;
-- *SEM CONEXÃO*: o celular não está conectado — avise pessoalmente ou ligue (o telefone aparece na janela).
-
-**Tela da equipe (Recebimento / Expedição):** abra `http://endereço:3100/equipe` no PC ou TV da área, entre com o PIN e
-escolha a equipe. Quando a portaria **libera** um caminhão daquele tipo, e de novo quando o motorista toca **ESTOU INDO**,
-a tela **pisca em tela cheia (cor da equipe/amarelo) e apita a cada 2 s** mostrando doca, placa, transportadora e carga,
-até alguém tocar em **CIENTE**. Na portaria aparece "⚠ Recebimento ainda não viu" ou "✔ Recebimento ciente 17:58".
-Cada equipe só recebe alertas dos caminhões dela. O primeiro toque na tela (escolher a equipe) é o que libera o som do navegador.
-
-**Depois (na tela da equipe):** "Estou indo" aparece sozinho e a tela pisca. **Rechamar** repete o alarme, **Trocar doca**
-chama para outra doca, **Encostou na doca** move o caminhão para "Na doca". Com o caminhão na doca, **CHAMAR MOTORISTA**
-pede o motivo (carga/descarga concluída, comparecer ao caminhão, documentos, mudar de doca) e o celular vibra de novo.
-**Liberar saída** encerra. Na portaria, **Histórico** mostra a linha do tempo completa.
-
-A coluna **Celular** mostra se a página do motorista está aberta agora e se ele ativou notificações.
-Indicadores no topo: aguardando, chamados, a caminho, espera média (chegada → chamada) e chegadas do dia.
-
-## 4. Roteiro de teste com celulares reais
-
-Use HTTPS (seção 2). Teste ao menos um **Android** e um **iPhone**.
+Faça com pelo menos 3 aparelhos: **Samsung**, **Motorola ou Xiaomi** e **iPhone**.
 
 | # | Teste | Esperado | OK? |
 |---|---|---|---|
-| 1 | Cadastrar chegada e ler o QR individual | Celular abre na tela do motorista | ☐ |
-| 2 | Tocar ATIVAR ALERTAS e Permitir | Tela "1º na fila", itens verdes | ☐ |
-| 3 | Chamar com a **página aberta** | Vibra + toca + tela laranja com a doca | ☐ |
-| 4 | Tocar ESTOU INDO | Dashboard mostra "Estou indo" com aviso sonoro | ☐ |
-| 5 | Nova chegada; bloquear a tela do celular; chamar | Notificação no bloqueio com vibração (se permitida) | ☐ |
-| 6 | Desligar dados móveis e chamar | Dashboard avisa "SEM CONEXÃO" | ☐ |
-| 7 | Tela da equipe aberta no PC do recebimento; chamar um caminhão de recebimento | Tela pisca e apita até CIENTE; portaria mostra "ciente" | ☐ |
-| 8 | Celular no silencioso / "Não perturbe" | Registrar o que acontece (depende do aparelho) | ☐ |
+| 1 | Lançar chegada, ler o QR, tocar em ATIVAR ALERTAS e depois em Permitir | Quadro **verde** no celular; ✔✔ na janela do QR | ☐ |
+| 2 | Celular **bloqueado**, portaria clica em TESTAR AVISO | Notificação de teste chega; portaria mostra **TUDO CERTO** | ☐ |
+| 3 | Celular bloqueado, equipe chama para uma doca | Notificação vibra e repete a cada 30 s; equipe vê **📳 chegou** | ☐ |
+| 4 | Tocar em **✅ ESTOU INDO** na notificação, sem abrir a página | Equipe pisca "MOTORISTA A CAMINHO" e as repetições param | ☐ |
+| 5 | Recado na fila: **Buscar nota fiscal → Escritório Expedição** | Celular mostra o recado e o local | ☐ |
+| 6 | Na doca: **Assinar canhoto** e depois **ENVIAR P/ EXPEDIÇÃO** | Celular: "Libere a doca e aguarde a Expedição"; tela da Expedição pisca | ☐ |
+| 7 | **Desligar os dados móveis** e chamar | Em ~75 s a equipe recebe o alerta vermelho com WhatsApp e Ligar | ☐ |
+| 8 | Liberar saída → portaria **REGISTRAR SAÍDA** | Celular "Boa viagem"; indicador **tempo no pátio** | ☐ |
+| 9 | Celular no silencioso / "Não perturbe" | Registrar o que acontece (depende do aparelho) | ☐ |
 
-## 5. Limitações conhecidas (honestas)
+## 4. Limitações (honestas)
 
-- **Sem internet no celular, não há chamada.** Para esses motoristas, a portaria chama pessoalmente ou por telefone.
-- **iPhone:** o Safari **não vibra** por página web. Notificação com tela bloqueada só funciona se o motorista
-  adicionar a página à **Tela de Início** (Compartilhar → Adicionar à Tela de Início, iOS 16.4+) e permitir notificações.
-  Com a página aberta, o iPhone toca o som (se o volume estiver ligado).
-- **Android/Chrome:** vibra com a página aberta. Com tela bloqueada, depende da permissão de notificação
-  e da economia de bateria do aparelho (alguns fabricantes atrasam notificações).
-- **Silencioso / Não perturbe** podem silenciar som e vibração — nenhum sistema web consegue forçar.
-- Protótipo: login por PIN único, sem gestão de usuários; sessões são perdidas ao reiniciar o servidor.
+- **Sem internet no celular, nenhuma notificação chega.** O vigia avisa a equipe, e o plano B é WhatsApp ou ligação.
+- **Notificações bloqueadas:** o site não consegue desbloquear sozinho. O motorista precisa liberar nas configurações; a tela dele mostra como.
+- **iPhone:**
+  - não vibra por página web;
+  - com a tela bloqueada, só recebe se a página for adicionada à **Tela de Início** (iOS 16.4+) e as notificações forem permitidas.
+- **Android:** a economia de bateria de alguns fabricantes (Xiaomi, Samsung) pode atrasar notificações. Se acontecer, oriente: **Configurações → Aplicativos → Chrome → Bateria → Sem restrições**.
+- **Silencioso / Não perturbe** podem silenciar som e vibração. Nenhum sistema web consegue forçar.
+- **Repetições e vigia ficam na memória do servidor:** se o Render reiniciar no meio de uma chamada, a repetição daquela chamada para (a notificação já entregue continua no celular).
+- Login por PIN único, sem gestão de usuários.
+
+## 5. Rodar no computador (opcional)
+
+Requisito: Node.js 22.5 ou superior. Rode `npm install`, depois `npm start` e abra `http://localhost:3100`.
+Variáveis úteis:
+
+| Variável | Para quê | Padrão |
+|---|---|---|
+| `PORTARIA_PIN` | PIN de acesso | — |
+| `DATABASE_URL` | Cópia dos dados no Neon | — |
+| `SITE_NAME` | Nome que aparece nas mensagens | — |
+| `PLACES` | Locais dos recados, separados por vírgula | `ESCRITÓRIO RECEBIMENTO,ESCRITÓRIO EXPEDIÇÃO,PORTARIA` |
+| `RING_EVERY_MS` / `RING_MAX` | Intervalo e quantidade de repetições | `30000` / `10` |
+| `WATCH_MS` | Tempo até o alerta de "não recebeu / não respondeu" | `75000` |
 
 ## 6. Estrutura
 
 ```
-src/server.js        API, tempo real (SSE), Web Push, QR Code, indicadores
-src/db.js            Banco SQLite (data/patio.db)
-public/index.html    Portaria + dashboard          public/portaria.js
-public/equipe.html   Tela da equipe que pisca/apita (equipe.js, equipe.css)
+src/server.js        API, tempo real (SSE), Web Push, recados, transferência, vigia, QR Code, indicadores
+src/db.js            Banco SQLite + migração automática das versões anteriores
+src/start.js         Início: restaura/salva a cópia no Postgres externo (Neon)
+public/index.html    Portaria (portaria.js)
+public/equipe.html   Recebimento / Expedição (equipe.js, equipe.css)
+public/m/            Motorista: driver.js, sw.js (notificações, confirmação de entrega, ESTOU INDO na notificação)
 public/cartaz.html   Cartaz A4 com o QR fixo
-public/m/            Página do motorista (driver.js), service worker (sw.js), manifest
-data/vapid.json      Chaves do Web Push geradas na 1ª execução (não compartilhe)
 ```
