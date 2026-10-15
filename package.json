@@ -1,0 +1,20 @@
+{
+  "name": "patio-push",
+  "version": "0.1.0",
+  "description": "Protótipo: controle de pátio e chamada de motoristas por notificação gratuita (QR Code + Web Push)",
+  "main": "src/start.js",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/start.js"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "express": "^4.22.3",
+    "pg": "^8.23.1",
+    "qrcode": "^1.5.4",
+    "web-push": "^3.6.7"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=22.5 <25"
+  }
+}

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pátio Push · Portaria</title>
+  <link rel="icon" href="/m/icon.svg">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <section id="login" class="login" hidden>
+    <form id="loginForm" class="login-card">
+      <div class="brand big"><span class="mark">P</span><div><b>Pátio Push</b><small>Portaria e chamada de motoristas</small></div></div>
+      <label>Seu nome<input name="name" required maxlength="40" autocomplete="name"></label>
+      <label>PIN da portaria<input name="pin" type="password" inputmode="numeric" required autocomplete="current-password"></label>
+      <p id="loginErr" class="err"></p>
+      <button class="btn primary block">Entrar</button>
+    </form>
+  </section>
+
+  <div id="app" hidden>
+    <header class="top">
+      <div class="brand"><span class="mark">P</span><div><b>Pátio Push</b><small>Portaria · lançamento de chegadas</small></div></div>
+      <div class="kpis" id="kpis"></div>
+      <div class="top-r">
+        <a class="btn ghost sm" href="/equipe" target="_blank">Tela Recebimento / Expedição</a>
+        <a class="btn ghost sm" href="/cartaz" target="_blank">Cartaz QR</a>
+        <span id="live" class="live off" title="Conexão em tempo real">● ao vivo</span>
+        <span id="clock" class="clock"></span>
+        <span id="opName"></span>
+        <button id="logout" class="btn ghost sm">Sair</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <!-- CADASTRO DE CHEGADA -->
+      <section class="card arrival">
+        <h2>Nova chegada</h2>
+        <form id="arrForm" autocomplete="off">
+          <div class="optype" role="radiogroup">
+            <label class="opt rec"><input type="radio" name="op_type" value="RECEBIMENTO" required><span><b>RECEBIMENTO</b><small>material de fornecedor</small></span></label>
+            <label class="opt exp"><input type="radio" name="op_type" value="EXPEDICAO" required><span><b>EXPEDIÇÃO</b><small>carga para cliente</small></span></label>
+          </div>
+          <label>Motorista*<input name="driver_name" required maxlength="80" placeholder="Nome completo"></label>
+          <div class="row2">
+            <label>Celular*<input name="phone" required inputmode="tel" placeholder="(41) 98765-4321"></label>
+            <label>Placa*<input name="plate" required maxlength="8" placeholder="ABC1D23" class="up"></label>
+          </div>
+          <label>Transportadora*<input name="carrier" required maxlength="80"></label>
+          <label><span id="partnerLbl">Fornecedor / cliente</span><input name="partner" maxlength="80"></label>
+          <label>Carga*<input name="cargo" required maxlength="200" placeholder="Ex.: 12 paletes aço bobina / NF 45871"></label>
+          <label>Observação<input name="note" maxlength="200"></label>
+          <p id="arrErr" class="err"></p>
+          <button class="btn primary block">LANÇAR NA FILA E GERAR QR</button>
+        </form>
+        <p class="hint">Ao lançar, aparece o QR Code do motorista e a tela do Recebimento/Expedição é avisada — a equipe chama e indica a doca. O motorista precisa de internet no celular enquanto estiver no pátio.</p>
+      </section>
+
+      <!-- DASHBOARD -->
+      <section class="card board">
+        <div class="board-head">
+          <h2>Pátio agora</h2>
+          <div class="tabs" id="typeTabs">
+            <button data-t="" class="on">Todos</button>
+            <button data-t="RECEBIMENTO">Recebimento</button>
+            <button data-t="EXPEDICAO">Expedição</button>
+          </div>
+          <div class="tabs" id="scopeTabs">
+            <button data-s="active" class="on">Em aberto</button>
+            <button data-s="today">Histórico de hoje</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Autorização</th><th>Motorista / placa</th><th>Carga</th><th>Chegada · espera</th><th>Celular</th><th>Status</th><th class="r">Ações</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="modal" class="modal" hidden><div class="modal-card"><div class="mh"><h3 id="mTitle"></h3><button class="x" data-close>×</button></div><div id="mBody" class="mb"></div><div id="mFoot" class="mf"></div></div></div>
+  <div id="toasts" class="toasts"></div>
+  <script src="/portaria.js"></script>
+</body>
+</html>

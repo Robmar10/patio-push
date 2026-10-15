@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#10151c">
+  <title>Chamada do motorista</title>
+  <link rel="manifest" href="/m/manifest.webmanifest">
+  <link rel="icon" href="/m/icon.svg">
+  <link rel="apple-touch-icon" href="/m/icon.svg">
+  <link rel="stylesheet" href="/m/driver.css">
+</head>
+<body>
+  <!-- 1. Identificação -->
+  <section id="vIdent" class="screen" hidden>
+    <div class="hero"><div class="logo">P</div><h1>Chamada de motorista</h1><p>Informe os dados cadastrados na portaria.</p></div>
+    <form id="identForm" class="card">
+      <label>Placa do caminhão<input name="plate" required maxlength="8" autocapitalize="characters" placeholder="ABC1D23"></label>
+      <label>4 últimos números do seu celular<input name="phone4" required inputmode="numeric" maxlength="4" pattern="\d{4}" placeholder="4321"></label>
+      <p id="identErr" class="err"></p>
+      <button class="btn">CONTINUAR</button>
+    </form>
+  </section>
+
+  <!-- 2. Ativar alertas (gesto do usuário é obrigatório para vibrar/notificar) -->
+  <section id="vActivate" class="screen" hidden>
+    <div class="hero"><div class="logo">P</div><h1 id="helloName">Olá!</h1><p>Toque no botão abaixo para o celular poder <b>vibrar e avisar</b> quando for sua vez.</p></div>
+    <button id="activateBtn" class="btn huge">ATIVAR ALERTAS</button>
+    <p class="note">Se o celular perguntar, toque em <b>Permitir</b> notificações.</p>
+  </section>
+
+  <!-- 3. Aguardando / chamado / confirmado -->
+  <section id="vMain" class="screen" hidden>
+    <div id="state" class="state wait">
+      <div class="kicker" id="kicker">AGUARDE SUA CHAMADA</div>
+      <div class="headline" id="headline">Você está na fila</div>
+      <div class="sub" id="subline"></div>
+      <button id="ackBtn" class="btn ack" hidden>ESTOU INDO</button>
+    </div>
+    <div class="info card">
+      <div><span>Autorização</span><b id="iAuth"></b></div>
+      <div><span>Placa</span><b id="iPlate"></b></div>
+      <div><span>Operação</span><b id="iType"></b></div>
+    </div>
+    <ul class="checks card" id="checks"></ul>
+    <p class="note">Mantenha esta página aberta, com internet ligada. Volume e vibração dependem das configurações do seu celular.</p>
+  </section>
+
+  <script src="/m/driver.js"></script>
+</body>
+</html>

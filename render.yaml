@@ -1,0 +1,25 @@
+# Configuração de deploy no Render (https://render.com) — usada pela opção "Blueprint".
+# O guia GUIA-NUVEM.md mostra também o caminho manual, preenchendo os mesmos campos na tela.
+services:
+  - type: web
+    name: patio-push
+    runtime: node
+    plan: free
+    region: virginia           # região do Render mais próxima do Brasil
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: PORTARIA_PIN        # PIN da portaria e da tela da equipe (mín. 6 dígitos)
+        sync: false
+      - key: DATABASE_URL        # cópia permanente dos dados (Neon → Connection string)
+        sync: false
+      - key: SITE_NAME
+        value: "Portaria · Controle de Pátio"
+      - key: VAPID_SUBJECT
+        value: "mailto:logistica@example.com"
+      - key: APP_TZ_OFFSET
+        value: "-03:00"

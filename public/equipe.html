@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recebimento / Expedição · Pátio Push</title>
+<link rel="icon" href="/m/icon.svg">
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/equipe.css">
+</head>
+<body class="team">
+  <section id="login" class="login" hidden>
+    <form id="loginForm" class="login-card">
+      <div class="brand big"><span class="mark">P</span><div><b>Recebimento / Expedição</b><small>Chamada de motoristas e controle das docas</small></div></div>
+      <label>Seu nome<input name="name" required maxlength="40" autocomplete="name"></label>
+      <label>PIN<input name="pin" type="password" inputmode="numeric" required autocomplete="current-password"></label>
+      <p id="loginErr" class="err"></p>
+      <button class="btn primary block">Entrar</button>
+    </form>
+  </section>
+
+  <section id="pick" class="login" hidden>
+    <div class="login-card">
+      <div class="brand big"><span class="mark">P</span><div><b>Qual equipe usa esta tela?</b><small>Você vê e chama só os caminhões desta equipe</small></div></div>
+      <button class="btn block pickbtn rec" data-team="RECEBIMENTO">RECEBIMENTO</button>
+      <button class="btn block pickbtn exp" data-team="EXPEDICAO">EXPEDIÇÃO</button>
+      <p class="hint">O toque no botão também libera o som do navegador.</p>
+    </div>
+  </section>
+
+  <div id="app" hidden>
+    <header class="tbar" id="tbar">
+      <div><b id="teamName"></b><small>Chamar motorista · indicar doca · chamar na doca · liberar saída</small></div>
+      <div class="tbar-r"><span id="live" class="live off">● ao vivo</span><span id="clock" class="clock"></span><span id="opName"></span><button id="switch" class="btn ghost sm">Trocar equipe</button></div>
+    </header>
+    <main class="tops">
+      <section>
+        <h2 class="sec">NA FILA — CHAMAR MOTORISTA <span class="n" id="nQueue">0</span></h2>
+        <div id="tQueue" class="tlist"></div>
+      </section>
+      <section>
+        <h2 class="sec">CHAMADOS / A CAMINHO <span class="n" id="nComing">0</span></h2>
+        <div id="tComing" class="tlist"></div>
+      </section>
+      <section>
+        <h2 class="sec">NA DOCA <span class="n" id="nDock">0</span></h2>
+        <div id="tDock" class="tlist"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ALERTA PISCANTE -->
+  <div id="alert" class="alert" hidden>
+    <div class="alert-box">
+      <div class="a-kind" id="aKind"></div>
+      <div class="a-dock" id="aDock"></div>
+      <div class="a-plate" id="aPlate"></div>
+      <div class="a-info" id="aInfo"></div>
+      <button id="ackBtn" class="a-ack">CIENTE</button>
+      <div class="a-more" id="aMore"></div>
+    </div>
+  </div>
+  <div id="toasts" class="toasts"></div>
+  <script src="/equipe.js"></script>
+</body>
+</html>
