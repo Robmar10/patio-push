@@ -24,6 +24,7 @@
 
   async function boot() {
     if (!S.token) return show('vIdent');
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/m/sw.js', { scope: '/m/' }).then((r) => { S.swReg = r; }).catch(() => {});
     try {
       const st = await api('/driver/state?t=' + encodeURIComponent(S.token));
       S.state = st;
@@ -64,6 +65,10 @@
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden && !S.wake && S.audio) keepAwake().then(renderChecks); if (!document.hidden) refresh(); });
 
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (ev) => { if (ev.data && ev.data.type === 'push') refresh(); });
+  }
+
   async function enablePush() {
     if (!('serviceWorker' in navigator) || !('Notification' in window)) return;
     try {
@@ -99,7 +104,8 @@
     const ring = () => {
       try { navigator.vibrate && navigator.vibrate([800, 250, 800, 250, 1200]); } catch { /* */ }
       beep();
-      if (document.hidden && Notification.permission === 'granted' && S.swReg && Date.now() - S.lastCall > 20000) {
+      // Com o celular bloqueado ou em outro app, quem avisa é a notificação enviada pelo servidor (repete a cada 30 s).
+      if (document.hidden && !S.state.push_enabled && Notification.permission === 'granted' && S.swReg && Date.now() - S.lastCall > 20000) {
         S.lastCall = Date.now();
         S.swReg.showNotification(`CHAMADA: ${S.state.dock}`, { body: `${$('#headline').textContent}. ${$('#subline').textContent}`, tag: 'chamada', renotify: true, requireInteraction: true, vibrate: [800, 250, 800, 250, 1200] }).catch(() => {});
       }
@@ -184,11 +190,66 @@
       items.push([perm === 'granted' || s.push_enabled, perm === 'granted' ? 'Notificações permitidas (avisa com tela bloqueada)'
         : isIOS && !standalone ? 'iPhone: para avisar com tela bloqueada, use Compartilhar → Adicionar à Tela de Início'
           : perm === 'denied' ? 'Notificações bloqueadas — mantenha esta tela aberta' : 'Notificações não ativadas — mantenha esta tela aberta']);
-      items.push([!!S.wake, S.wake ? 'Tela mantida ligada' : 'A tela pode apagar — evite bloquear o celular']);
+      if (pushMode() !== 'ok') items.push([!!S.wake, S.wake ? 'Tela mantida ligada' : 'A tela pode apagar — evite bloquear o celular']);
     }
     $('#checks').innerHTML = items.map(([ok, t]) => `<li class="${ok ? '' : 'no'}">${t}</li>`).join('');
     $('#checks').hidden = !items.length;
+    renderPushBox(done);
   }
+
+  // ---------- quadro "chamada com o celular bloqueado" ----------
+  function pushMode() {
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) return isIOS && !standalone ? 'ios-home' : 'unsupported';
+    if (isIOS && !standalone) return 'ios-home';
+    const p = Notification.permission;
+    if (p === 'granted' && S.state && S.state.push_enabled) return 'ok';
+    if (p === 'denied') return 'denied';
+    return 'ask';
+  }
+  function renderPushBox(done) {
+    const box = $('#pushBox');
+    if (done) { box.hidden = true; $('#footNote').textContent = ''; return; }
+    const mode = pushMode();
+    box.hidden = false;
+    box.className = 'card pushbox ' + (mode === 'ok' ? 'ok' : 'bad');
+    const html = {
+      ok: `<h3>✔ Pode bloquear o celular</h3>
+        <div>Pode usar outros aplicativos ou bloquear a tela. A chamada chega como <b>notificação com vibração</b> e se repete até você responder. Dá para tocar em <b>ESTOU INDO</b> direto na notificação.</div>
+        <button class="btn alt" id="testBtn">TESTAR AVISO</button><p class="msg" id="testMsg"></p>`,
+      ask: `<h3>⚠ Falta permitir as notificações</h3>
+        <div>Sem isso, você <b>só é chamado com esta página aberta na tela</b>.</div>
+        <button class="btn" id="permBtn">PERMITIR NOTIFICAÇÕES</button>`,
+      denied: `<h3>⚠ Notificações bloqueadas</h3>
+        <div>Você <b>só será chamado com esta página aberta na tela</b>. Para liberar:</div>
+        <ol><li>Toque no <b>cadeado</b> (ou nos ⋮ três pontos) ao lado do endereço do site.</li>
+        <li>Toque em <b>Permissões</b> ou <b>Configurações do site</b> → <b>Notificações</b> → <b>Permitir</b>.</li>
+        <li>Volte aqui e toque no botão abaixo.</li></ol>
+        <button class="btn" id="permBtn">JÁ LIBEREI</button>`,
+      'ios-home': `<h3>⚠ iPhone: falta um passo</h3>
+        <div>Para ser chamado com o celular bloqueado:</div>
+        <ol><li>Toque em <b>Compartilhar</b> (quadrado com seta ↑) no Safari.</li>
+        <li>Toque em <b>Adicionar à Tela de Início</b> → <b>Adicionar</b>.</li>
+        <li>Abra pelo novo ícone <b>P</b>, informe placa e celular e toque em <b>ATIVAR ALERTAS</b> → <b>Permitir</b>.</li></ol>
+        <div>Até lá, deixe esta página aberta e o volume alto.</div>`,
+      unsupported: `<h3>⚠ Este navegador não recebe notificações</h3>
+        <div>Abra o link no <b>Chrome</b> ou deixe esta página aberta na tela, com volume alto.</div>`,
+    }[mode];
+    if (box.dataset.mode !== mode) { box.innerHTML = html; box.dataset.mode = mode; }
+    $('#footNote').textContent = mode === 'ok'
+      ? 'Não feche o navegador "à força" (arrastando da lista de apps) e mantenha a internet ligada. Celular no silencioso ou em "Não perturbe" pode não vibrar.'
+      : 'Mantenha esta página aberta, com internet ligada. Volume e vibração dependem das configurações do seu celular.';
+  }
+  document.addEventListener('click', async (e) => {
+    if (e.target.id === 'permBtn') {
+      await enablePush(); await refresh(); $('#pushBox').dataset.mode = ''; renderChecks();
+    } else if (e.target.id === 'testBtn') {
+      const msg = $('#testMsg');
+      try {
+        await api('/driver/test-push', { token: S.token });
+        msg.textContent = 'Agora BLOQUEIE o celular. Em 10 segundos chega a notificação de teste.';
+      } catch (err) { msg.textContent = err.message; }
+    }
+  });
 
   boot();
 })();

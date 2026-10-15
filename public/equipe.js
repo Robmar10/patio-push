@@ -95,7 +95,8 @@
 
   function flags(v) {
     const f = [v.driver_online ? '<span class="ok">● celular conectado</span>' : v.driver_linked_at ? '<span class="off">○ página do motorista fechada</span>' : '<span class="wn">○ celular não conectou — avise por outro meio</span>'];
-    if (v.push_enabled) f.push('<span class="ok">🔔 notificação ativa</span>');
+    if (v.push_enabled) f.push('<span class="ok">🔔 chama com celular bloqueado</span>');
+    else if (v.driver_linked_at) f.push('<span class="wn">🔕 sem notificação — só chama com a página aberta</span>');
     if (v.status === 'CONFIRMADO') f.push(`<span class="ok">✔ respondeu "estou indo" ${hm(v.confirmed_at)}</span>`);
     if (dockPending(v)) f.push(`<span class="wn">📣 chamado ${hm(v.dock_call_at)} (${esc(REASONS[v.dock_call_reason]?.label || '')}) — sem resposta</span>`);
     else if (v.dock_call_acked_at) f.push(`<span class="ok">✔ respondeu ${hm(v.dock_call_acked_at)}</span>`);

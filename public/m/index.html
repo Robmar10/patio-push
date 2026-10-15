@@ -26,7 +26,7 @@
   <section id="vActivate" class="screen" hidden>
     <div class="hero"><div class="logo">P</div><h1 id="helloName">Olá!</h1><p>Toque no botão abaixo para o celular poder <b>vibrar e avisar</b> quando for sua vez.</p></div>
     <button id="activateBtn" class="btn huge">ATIVAR ALERTAS</button>
-    <p class="note">Se o celular perguntar, toque em <b>Permitir</b> notificações.</p>
+    <p class="note">Quando o celular perguntar, toque em <b>Permitir</b>. É isso que faz a chamada chegar <b>com o celular bloqueado ou em outro aplicativo</b>.</p>
   </section>
 
   <!-- 3. Aguardando / chamado / confirmado -->
@@ -42,8 +42,9 @@
       <div><span>Placa</span><b id="iPlate"></b></div>
       <div><span>Operação</span><b id="iType"></b></div>
     </div>
+    <div id="pushBox" class="card pushbox" hidden></div>
     <ul class="checks card" id="checks"></ul>
-    <p class="note">Mantenha esta página aberta, com internet ligada. Volume e vibração dependem das configurações do seu celular.</p>
+    <p class="note" id="footNote"></p>
   </section>
 
   <script src="/m/driver.js"></script>

@@ -292,9 +292,34 @@ function loadActive(req, res, allowed) {
   return v;
 }
 // Avisa o celular do motorista: página aberta (SSE) + notificação (Web Push, se permitida).
+// Chamada insistente: a notificação se repete a cada 30 s (até 5 min) enquanto o motorista não responder,
+// mesmo com o celular bloqueado ou em outro aplicativo. Para sozinha quando ele toca ESTOU INDO
+// (na página ou no botão da própria notificação) ou quando a equipe muda a situação.
+const RING_EVERY_MS = Number(process.env.RING_EVERY_MS || 30000);
+const RING_MAX = Number(process.env.RING_MAX || 10);
+const ringers = new Map(); // visitId -> { timer, n, key }
+const pendingKey = (v) => (v.status === 'CHAMADO' ? `C:${v.call_count}:${v.dock}` : dockPending(v) ? `D:${v.dock_call_count}:${v.dock}` : null);
+function stopRinging(id) { const r = ringers.get(id); if (r) { clearTimeout(r.timer); ringers.delete(id); } }
+const payloadFor = (v, title, body, n) => ({
+  title: n > 1 ? `${title} (${n}ª vez)` : title, body, url: '/m/', tag: `call-${v.id}`, token: v.driver_token, ack: true,
+});
 async function ringDriver(v, title, body) {
+  stopRinging(v.id);
   emit((c) => c.kind === 'driver' && c.visitId === v.id, 'call', { dock: v.dock, plate: v.plate });
-  const push = await pushToVisit(v, { title, body, url: '/m/', tag: `call-${v.id}` });
+  const push = await pushToVisit(v, payloadFor(v, title, body, 1));
+  const key = pendingKey(v);
+  if (key && push.subscriptions) {
+    const r = { n: 1, key, timer: null };
+    const tick = async () => {
+      const cur = getVisit(v.id);
+      if (!cur || pendingKey(cur) !== r.key || r.n >= RING_MAX) return stopRinging(v.id);
+      r.n++;
+      try { await pushToVisit(cur, payloadFor(cur, title, body, r.n)); } catch { /* segue */ }
+      if (ringers.get(v.id) === r) r.timer = setTimeout(tick, RING_EVERY_MS);
+    };
+    r.timer = setTimeout(tick, RING_EVERY_MS);
+    ringers.set(v.id, r);
+  }
   return { page_open: onlineCount(v.id) > 0, push };
 }
 
@@ -480,9 +505,27 @@ app.post('/api/driver/ack', (req, res) => {
   } else {
     return res.json(driverView(v));
   }
+  stopRinging(v.id);
+  // Troca a notificação insistente por uma confirmação silenciosa (some do bloqueio de tela).
+  pushToVisit(v, { title: `Confirmado ✔ ${v.dock || ''}`.trim(), body: 'A equipe já sabe que você está indo.', url: '/m/', tag: `call-${v.id}`, quiet: true }).catch(() => {});
   broadcastVisit(v.id);
   emit((c) => c.kind === 'staff', 'ack', { id: v.id, driver_name: v.driver_name, dock: v.dock, plate: v.plate });
   res.json(driverView(getVisit(v.id)));
+});
+
+// Teste: o motorista toca "TESTAR AVISO", bloqueia o celular e recebe uma notificação 10 s depois.
+app.post('/api/driver/test-push', (req, res) => {
+  const v = byToken(req.body.token);
+  if (!v) return bad(res, 404, 'Link inválido.');
+  if (limited(req, 'testpush', 6)) return bad(res, 429, 'Aguarde alguns minutos para testar de novo.');
+  const n = db.prepare('SELECT COUNT(*) AS n FROM push_subscriptions WHERE visit_id = ?').get(v.id).n;
+  if (!n) return bad(res, 409, 'Notificações não estão ativadas neste celular.');
+  setTimeout(() => {
+    pushToVisit(v, { title: 'TESTE: aviso funcionando ✔', body: 'É assim que a chamada vai chegar, mesmo com o celular bloqueado.', url: '/m/', tag: `test-${v.id}` })
+      .catch(() => {});
+  }, 10000);
+  logEvent(v.id, 'TESTE_DE_AVISO', null, 'motorista');
+  res.json({ ok: true, seconds: 10 });
 });
 
 app.get('/api/push/key', (req, res) => res.json({ publicKey: vapid.publicKey }));
