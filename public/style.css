@@ -134,3 +134,6 @@ label.chk input { width: 18px; height: 18px; margin: 0; }
 .qrok { background: #e6f5ea; color: var(--green); font-weight: 800; border-radius: 8px; padding: 10px 12px; }
 .kpis .kx b { color: #ffc24d; }
 .st.FINALIZADO { background: #e6f5ea; color: var(--green); }
+
+.cartaz-id { background: #fff6e0; border: 1px solid #f0d08a; border-radius: 8px; padding: 10px 12px; font-size: 14px; margin: 6px 0; line-height: 1.6; }
+.cartaz-id .plate { font-size: 17px; }

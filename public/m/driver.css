@@ -45,3 +45,8 @@ input:focus { outline: none; border-color: var(--blue); }
 .pushbox .msg { margin: 0; font-weight: 650; color: var(--green); min-height: 1em; }
 .pushbox .msg.bad { color: #c4241c; }
 .btn:disabled { opacity: .6; }
+
+.whois { text-align: center; font-size: 16px; line-height: 1.5; }
+.whois .pl { font-family: ui-monospace, Consolas, monospace; font-size: 30px; font-weight: 900; letter-spacing: .06em; display: block; }
+.whois .op { display: inline-block; margin-top: 6px; padding: 4px 12px; border-radius: 99px; font-weight: 900; letter-spacing: .06em; color: #fff; background: var(--blue); }
+.whois .op.CARREGAR { background: #7a3db8; }

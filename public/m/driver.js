@@ -12,6 +12,10 @@
 
   // ---------- token (via QR individual ?t=... ou identificação) ----------
   const qs = new URLSearchParams(location.search);
+  // Entrou pelo CARTAZ fixo (sem link individual e sem vir de uma notificação): se este celular já tiver
+  // um acesso salvo, pergunta "É você?" antes de mostrar — nunca mostra a entrada de outro motorista.
+  const fromCartaz = !qs.get('t') && !qs.get('n');
+  if (qs.get('n')) history.replaceState(null, '', '/m/');
   if (qs.get('t')) {
     try { localStorage.setItem(KEY, qs.get('t')); } catch { /* sem storage */ }
     // No iPhone o link fica na barra: o ícone "Adicionar à Tela de Início" abre com o acesso do motorista.
@@ -19,7 +23,16 @@
   }
   try { S.token = localStorage.getItem(KEY) || qs.get('t'); } catch { S.token = qs.get('t'); }
 
-  const show = (id) => ['vIdent', 'vActivate', 'vMain'].forEach((v) => { $('#' + v).hidden = v !== id; });
+  const show = (id) => ['vIdent', 'vConfirm', 'vActivate', 'vMain'].forEach((v) => { $('#' + v).hidden = v !== id; });
+  const OPNAME = { DESCARREGAR: 'DESCARGA', CARREGAR: 'CARGA' };
+  const whoHtml = (st) => `<b>${escapeHtml(st.first_name)}</b><span class="pl">${escapeHtml(st.plate)}</span>
+    Autorização ${escapeHtml(st.auth_code)}<br><span class="op ${st.action}">${OPNAME[st.action] || ''} · ${escapeHtml(st.team)}</span>`;
+  // Já confirmado nesta aba (ex.: recarregou a página): não pergunta de novo. Uma leitura nova do cartaz abre aba nova.
+  const SKEY = 'pp_ok';
+  const okHere = () => { try { return !!S.token && sessionStorage.getItem(SKEY) === S.token; } catch { return false; } };
+  const markOk = () => { try { if (S.token) sessionStorage.setItem(SKEY, S.token); } catch { /* */ } };
+  let confirmed = !fromCartaz || okHere();
+  if (confirmed) markOk();
 
   async function api(path, body) {
     const r = await fetch('/api' + path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : { cache: 'no-store' });
@@ -44,7 +57,14 @@
       S.state = st;
       bindToken();
       $('#helloName').textContent = `Olá, ${st.first_name}!`;
-      if (['ATENDIDO', 'FINALIZADO', 'CANCELADO'].includes(st.status)) { show('vMain'); render(); connect(); return; }
+      if (['ATENDIDO', 'FINALIZADO', 'CANCELADO'].includes(st.status)) {
+        if (fromCartaz && !confirmed) { forget(); return show('vIdent'); } // acesso antigo: identificar de novo
+        show('vMain'); render(); connect(); return;
+      }
+      $('#activateWho').innerHTML = whoHtml(st);
+      if (!confirmed && okHere()) confirmed = true;
+      if (confirmed) markOk();
+      if (!confirmed) { $('#confirmWho').innerHTML = whoHtml(st); return show('vConfirm'); }
       // Já permitiu antes (ex.: abriu pela notificação): vai direto, sem pedir de novo.
       if (hasNotif && Notification.permission === 'granted') {
         await syncPush();
@@ -58,12 +78,21 @@
     }
   }
 
+  function forget() {
+    try { localStorage.removeItem(KEY); } catch { /* */ }
+    S.token = null; S.state = null; if (S.es) S.es.close();
+    $('#identErr').textContent = '';
+  }
+  $('#confirmYes').addEventListener('click', () => { confirmed = true; boot(); });
+  $('#confirmNo').addEventListener('click', () => { forget(); show('vIdent'); });
+
   $('#identForm').addEventListener('submit', async (e) => {
     e.preventDefault(); $('#identErr').textContent = '';
     const f = new FormData(e.target);
     try {
       const r = await api('/driver/identify', { plate: f.get('plate'), phone4: f.get('phone4') });
       S.token = r.token; try { localStorage.setItem(KEY, r.token); } catch { /* */ }
+      confirmed = true; // acabou de digitar placa + celular
       boot();
     } catch (err) { $('#identErr').textContent = err.message; }
   });
@@ -178,17 +207,18 @@
   });
 
   // ---------- tela ----------
-  const TYPE = { RECEBIMENTO: 'Recebimento', EXPEDICAO: 'Expedição' };
+  const TYPE = { DESCARREGAR: 'Descarga', CARREGAR: 'Carga' };
   // Uma "chave" por chamada: quando muda, o alarme recomeça do zero.
   const callKey = (s) => (s.status === 'CHAMADO' ? 'c' + s.call_count : s.msg && s.msg.pending ? 'm' + s.msg.at : null);
 
   function render() {
     const s = S.state; if (!s) return;
-    $('#iAuth').textContent = s.auth_code; $('#iPlate').textContent = s.plate; $('#iType').textContent = TYPE[s.op_type] || s.op_type;
+    $('#iAuth').textContent = s.auth_code; $('#iPlate').textContent = s.plate; $('#iType').textContent = TYPE[s.action] || s.team;
     const box = $('#state'); const ack = $('#ackBtn');
     const set = (cls, k, h, sub, title) => { box.className = 'state ' + cls; $('#kicker').textContent = k; $('#headline').textContent = h; $('#subline').textContent = sub; document.title = title; };
     ack.hidden = true;
     const team = s.team || 'equipe';
+    const act = s.action || 'DESCARREGAR'; const actL = act.toLowerCase();
     const m = s.msg;
     if ((s.status === 'AGUARDANDO' || s.status === 'NA_DOCA') && m && m.pending) {
       set('call', s.status === 'NA_DOCA' ? 'CHAMADO NA DOCA' : 'RECADO DA EQUIPE', m.head, m.text, `🔔 ${m.head}`);
@@ -196,17 +226,17 @@
     } else if (s.status === 'AGUARDANDO') {
       const pos = s.position ? `${s.position}º na fila` : 'Você está na fila';
       if (s.leg > 1) {
-        set('wait', `AGUARDE A ${team.toUpperCase()}`, pos, s.prev_dock ? `Libere a ${s.prev_dock} e aguarde no pátio. A ${team} vai chamar você.` : `Agora quem chama você é a ${team}.`, 'Aguardando chamada');
+        set('wait', `AGUARDE PARA ${act}`, pos, s.prev_dock ? `Libere a ${s.prev_dock} e aguarde no pátio. A ${team} vai chamar você para ${actL}.` : `Agora quem chama você é a ${team}, para ${actL}.`, 'Aguardando chamada');
       } else {
-        set('wait', 'AGUARDE SUA CHAMADA', pos, `O ${team} vai chamar você. O celular vai vibrar e tocar.`, 'Aguardando chamada');
+        set('wait', `AGUARDE PARA ${act}`, pos, `O ${team} vai chamar você para ${actL}. O celular vai vibrar e tocar.`, 'Aguardando chamada');
       }
     } else if (s.status === 'CHAMADO') {
-      set('call', s.call_count > 1 ? `CHAMADA REPETIDA (${s.call_count}ª)` : 'SUA VEZ!', `COMPAREÇA À ${s.dock}`, `Caminhão ${s.plate}`, `🔔 ${s.dock}`);
+      set('call', s.call_count > 1 ? `CHAMADA REPETIDA (${s.call_count}ª)` : 'SUA VEZ!', `${act} NA ${s.dock}`, `Leve o caminhão ${s.plate} até a ${s.dock}.`, `🔔 ${act} ${s.dock}`);
       ack.hidden = false;
     } else if (s.status === 'CONFIRMADO') {
-      set('go', 'CONFIRMADO', `Siga para a ${s.dock}`, `O ${team} recebeu sua confirmação.`, `A caminho da ${s.dock}`);
+      set('go', 'CONFIRMADO', `Siga para a ${s.dock}`, `Para ${actL}. O ${team} recebeu sua confirmação.`, `A caminho da ${s.dock}`);
     } else if (s.status === 'NA_DOCA') {
-      set('dock', 'NA DOCA', s.dock, s.next_team ? `Depois desta etapa você vai para a ${s.next_team}. A equipe avisa por aqui.` : 'A equipe pode chamar você por aqui (carga pronta, documentos, canhoto).', `Na ${s.dock}`);
+      set('dock', `NA DOCA · ${OPNAME[act]}`, s.dock, s.next_team ? `Depois desta etapa você vai para a ${s.next_team}. A equipe avisa por aqui.` : 'A equipe pode chamar você por aqui (carga pronta, documentos, canhoto).', `Na ${s.dock}`);
     } else {
       const done = s.status === 'FINALIZADO' || s.status === 'ATENDIDO';
       if (done && !s.exited) set('go', 'SAÍDA LIBERADA', 'Pode sair', 'Apresente-se na portaria com o caminhão.', 'Saída liberada');

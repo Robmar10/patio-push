@@ -8,7 +8,7 @@
   <link rel="manifest" href="/m/manifest.webmanifest">
   <link rel="icon" href="/m/icon.svg">
   <link rel="apple-touch-icon" href="/m/icon.svg">
-  <link rel="stylesheet" href="/m/driver.css?v=v3a">
+  <link rel="stylesheet" href="/m/driver.css?v=v3b">
 </head>
 <body>
   <!-- 1. Identificação -->
@@ -22,9 +22,18 @@
     </form>
   </section>
 
+  <!-- 1b. Confirmação de identidade (entrou pelo cartaz com um acesso já salvo neste celular) -->
+  <section id="vConfirm" class="screen" hidden>
+    <div class="hero"><div class="logo">P</div><h1>É você?</h1><p>Este celular já está ligado a esta entrada:</p></div>
+    <div class="card whois" id="confirmWho"></div>
+    <button id="confirmYes" class="btn huge">SIM, SOU EU</button>
+    <button id="confirmNo" class="btn">NÃO — SOU OUTRO MOTORISTA / OUTRA PLACA</button>
+  </section>
+
   <!-- 2. Ativar alertas (gesto do usuário é obrigatório para vibrar/notificar) -->
   <section id="vActivate" class="screen" hidden>
     <div class="hero"><div class="logo">P</div><h1 id="helloName">Olá!</h1><p>Toque no botão abaixo para o celular poder <b>vibrar e avisar</b> quando for sua vez.</p></div>
+    <div class="card whois" id="activateWho"></div>
     <button id="activateBtn" class="btn huge">ATIVAR ALERTAS</button>
     <p class="note">Quando o celular perguntar, toque em <b>Permitir</b>. É isso que faz a chamada chegar <b>com o celular bloqueado ou em outro aplicativo</b>.</p>
   </section>
@@ -47,6 +56,6 @@
     <p class="note" id="footNote"></p>
   </section>
 
-  <script src="/m/driver.js?v=v3a"></script>
+  <script src="/m/driver.js?v=v3b"></script>
 </body>
 </html>

@@ -205,9 +205,10 @@
       body: `<div class="qrbox"><img src="/api/visits/${v.id}/qr.svg" alt="QR Code do motorista">
         <div><div class="sub">Autorização</div><div class="big-auth">${esc(v.auth_code)}</div>
         <p><b>${esc(v.driver_name)}</b><br><span class="plate">${esc(v.plate)}</span> <span class="tag ${v.op_type}">${TYPE[v.op_type]}</span>${v.next_op ? ` <span class="sub">➜ depois ${NAME[v.next_op]}</span>` : ''}</p>
-        <p class="sub">Peça ao motorista para ler este QR com a câmera, tocar em <b>ATIVAR ALERTAS</b> e em <b>PERMITIR</b>.</p>
+        <div class="cartaz-id">Pelo <b>CARTAZ</b> da portaria, o motorista digita:<br>placa <b class="plate">${esc(v.plate)}</b> + final do celular <b class="plate">${esc(v.phone.slice(-4))}</b></div>
+        <p class="sub">Ou lê este QR individual. Depois: <b>ATIVAR ALERTAS</b> → <b>PERMITIR</b>. Só o celular dele recebe as chamadas desta placa.</p>
         <div id="qrLive" class="qrlive"></div></div></div>
-        <p class="sub" style="word-break:break-all">Sem câmera? Envie o link pelo WhatsApp ou use o cartaz fixo + placa + 4 últimos dígitos do celular (${esc(v.phone.slice(-4))}).<br><span class="mono">${esc(link)}</span></p>`,
+        <p class="sub" style="word-break:break-all">Sem câmera? Envie o link pelo WhatsApp.<br><span class="mono">${esc(link)}</span></p>`,
       buttons: [
         { label: 'Enviar link por WhatsApp', action: async () => { window.open(wa, '_blank', 'noopener'); return false; } },
         { label: 'Copiar link', action: async () => { await navigator.clipboard.writeText(link).catch(() => {}); toast('Link copiado.'); return false; } },

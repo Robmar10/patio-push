@@ -8,6 +8,7 @@
   const TKEY = 'pp_team';
   const LABEL = { RECEBIMENTO: 'RECEBIMENTO', EXPEDICAO: 'EXPEDIÇÃO' };
   const NAME = { RECEBIMENTO: 'Recebimento', EXPEDICAO: 'Expedição' };
+  const ACT = { RECEBIMENTO: 'DESCARREGAR', EXPEDICAO: 'CARREGAR' };
   const other = (t) => (t === 'RECEBIMENTO' ? 'EXPEDICAO' : 'RECEBIMENTO');
   const KIND = {
     NOVA_CHEGADA: 'NOVO CAMINHÃO NA FILA', ENTRANDO: 'MOTORISTA A CAMINHO', RESPONDEU: 'MOTORISTA RESPONDEU — ESTÁ INDO',
@@ -102,9 +103,9 @@
     const first = v.driver_name.split(' ')[0];
     const who = `Aqui é o ${NAME[v.op_type]}${S.cfg.siteName ? ` (${S.cfg.siteName})` : ''}.`;
     if (msgPending(v)) return `Olá ${first}! ${who} ${v.msg.head}: ${v.msg.text} Caminhão ${v.plate}.`;
-    if (v.status === 'CHAMADO' || v.status === 'CONFIRMADO') return `Olá ${first}! ${who} Sua vez: compareça à ${v.dock} com o caminhão ${v.plate}.`;
+    if (v.status === 'CHAMADO' || v.status === 'CONFIRMADO') return `Olá ${first}! ${who} Sua vez de ${ACT[v.op_type].toLowerCase()}: leve o caminhão ${v.plate} para a ${v.dock}.`;
     if (v.status === 'NA_DOCA') return `Olá ${first}! ${who} Compareça ao seu caminhão na ${v.dock}.`;
-    return `Olá ${first}! ${who} Seu caminhão ${v.plate} está na fila. Mantenha a página de chamada aberta e as notificações ativas.`;
+    return `Olá ${first}! ${who} Seu caminhão ${v.plate} está na fila para ${ACT[v.op_type].toLowerCase()}. Mantenha a página de chamada aberta e as notificações ativas.`;
   }
   const contact = (v, big) => `<a class="ct wa${big ? ' big' : ''}" target="_blank" rel="noopener" href="https://wa.me/${intl(v.phone)}?text=${encodeURIComponent(waText(v))}">WhatsApp</a>`
     + `<a class="ct tel${big ? ' big' : ''}" href="tel:+${intl(v.phone)}">Ligar ${esc(fmtPhone(v.phone))}</a>`;
@@ -152,7 +153,7 @@
       acts = `<button class="btn tcall" data-a="pick-call" data-id="${v.id}">CHAMAR MOTORISTA</button>
         <button class="btn sm tsec" data-a="pick-reason" data-id="${v.id}">Recado</button>
         <button class="btn sm tsec" data-a="transfer" data-id="${v.id}">Passar p/ ${otherName}</button>`;
-      if (p && p.kind === 'call') pk = `<div class="pk"><span class="lbl">Escolha a doca — o celular do motorista vibra na hora:</span>${dockGrid(v, 'call')}</div>`;
+      if (p && p.kind === 'call') pk = `<div class="pk"><span class="lbl">Doca para ${ACT[v.op_type]} — só o celular de ${esc(v.driver_name.split(' ')[0])} (${esc(v.plate)}) vibra:</span>${dockGrid(v, 'call')}</div>`;
     } else if (v.status === 'CHAMADO' || v.status === 'CONFIRMADO') {
       when = `chamado ${hm(v.called_at)}${v.call_count > 1 ? ` · ${v.call_count} chamadas` : ''}`;
       acts = `<button class="btn sm tcall" data-a="recall" data-id="${v.id}">Rechamar</button>

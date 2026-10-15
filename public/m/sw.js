@@ -26,9 +26,9 @@ self.addEventListener('push', (event) => {
   const base = { icon: '/m/icon.svg', badge: '/m/icon.svg', tag: d.tag || 'chamada' };
   let opts;
   if (d.quiet) {
-    opts = { ...base, body: d.body || '', renotify: false, silent: true, data: { url: '/m/' } };
+    opts = { ...base, body: d.body || '', renotify: false, silent: true, data: { url: '/m/?n=1' } };
   } else if (d.kind === 'info' || d.kind === 'test') {
-    opts = { ...base, body: d.body || '', renotify: true, vibrate: [600, 200, 600], data: { url: '/m/' } };
+    opts = { ...base, body: d.body || '', renotify: true, vibrate: [600, 200, 600], data: { url: '/m/?n=1' } };
   } else {
     opts = {
       ...base,
@@ -36,7 +36,7 @@ self.addEventListener('push', (event) => {
       renotify: true,
       requireInteraction: true,
       vibrate: VIBRA,
-      data: { url: '/m/', token: d.token || null },
+      data: { url: '/m/?n=1', token: d.token || null },
       actions: d.ack && d.token ? [{ action: 'ack', title: '✅ ESTOU INDO' }, { action: 'open', title: 'Ver detalhes' }] : [],
     };
   }
@@ -58,9 +58,9 @@ self.addEventListener('notificationclick', (event) => {
       try {
         const r = await post('/api/driver/ack', { token: data.token });
         if (!r.ok) throw new Error('falha');
-        await self.registration.showNotification('Confirmado ✔', { body: 'A equipe já sabe que você está indo.', tag: n.tag, silent: true, icon: '/m/icon.svg', data: { url: '/m/' } });
+        await self.registration.showNotification('Confirmado ✔', { body: 'A equipe já sabe que você está indo.', tag: n.tag, silent: true, icon: '/m/icon.svg', data: { url: '/m/?n=1' } });
       } catch {
-        await self.registration.showNotification('Não foi possível confirmar', { body: 'Sem internet? Toque aqui para abrir e tentar de novo.', tag: n.tag, requireInteraction: true, icon: '/m/icon.svg', data: { url: '/m/' } });
+        await self.registration.showNotification('Não foi possível confirmar', { body: 'Sem internet? Toque aqui para abrir e tentar de novo.', tag: n.tag, requireInteraction: true, icon: '/m/icon.svg', data: { url: '/m/?n=1' } });
       }
     })());
     return;

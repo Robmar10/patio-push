@@ -99,6 +99,12 @@ const getVisit = (id) => db.prepare('SELECT * FROM visits WHERE id = ?').get(id)
 const ACTIVE = ['AGUARDANDO', 'CHAMADO', 'CONFIRMADO', 'NA_DOCA'];
 const TEAM = { RECEBIMENTO: 'Recebimento', EXPEDICAO: 'Expedição' };
 const otherTeam = (t) => (t === 'RECEBIMENTO' ? 'EXPEDICAO' : 'RECEBIMENTO');
+// O que o motorista vai fazer quando for chamado: Recebimento = DESCARREGAR, Expedição = CARREGAR.
+const ACTION = { RECEBIMENTO: 'DESCARREGAR', EXPEDICAO: 'CARREGAR' };
+const callTexts = (v, repeat) => ({
+  title: `${repeat ? 'CHAMADA REPETIDA · ' : ''}${ACTION[v.op_type]} · ${v.dock}`,
+  body: `Sua vez de ${ACTION[v.op_type].toLowerCase()}: leve o caminhão ${v.plate} para a ${v.dock}. Autorização ${v.auth_code}.`,
+});
 // Locais fora das docas para onde a equipe pode chamar o motorista (configurável em PLACES, separados por vírgula).
 const OFFICES = env('PLACES', 'ESCRITÓRIO RECEBIMENTO,ESCRITÓRIO EXPEDIÇÃO,PORTARIA')
   .split(',').map((s) => clean(s, 40).toUpperCase()).filter(Boolean);
@@ -140,7 +146,7 @@ function driverView(v) {
     first_name: v.driver_name.split(' ')[0], plate: v.plate, op_type: v.op_type, auth_code: v.auth_code,
     status: v.status, dock: v.dock, call_count: v.call_count, called_at: v.called_at, arrived_at: v.arrived_at,
     position: queuePosition(v), push_enabled: !!v.push_enabled,
-    team: TEAM[v.op_type], next_team: v.next_op ? TEAM[v.next_op] : null, leg: v.leg || 1, prev_dock: v.prev_dock || null,
+    team: TEAM[v.op_type], action: ACTION[v.op_type], next_team: v.next_op ? TEAM[v.next_op] : null, leg: v.leg || 1, prev_dock: v.prev_dock || null,
     msg: msgView(v),
     exited: !!v.exited_at,
   };
@@ -340,7 +346,7 @@ const ringers = new Map(); // visitId -> { timer, watch, n, key }
 const pendingKey = (v) => (v.status === 'CHAMADO' ? `C:${v.call_count}:${v.dock}` : msgPending(v) ? `M:${v.dock_call_count}:${v.dock_call_at}` : null);
 function stopRinging(id) { const r = ringers.get(id); if (r) { clearTimeout(r.timer); clearTimeout(r.watch); ringers.delete(id); } }
 const payloadFor = (v, title, body, n) => ({
-  title: n > 1 ? `${title} (${n}ª vez)` : title, body, url: '/m/', tag: `call-${v.id}`, token: v.driver_token, kind: 'call', ack: true,
+  title: n > 1 ? `${title} (${n}ª vez)` : title, body, url: '/m/?n=1', tag: `call-${v.id}`, token: v.driver_token, kind: 'call', ack: true,
 });
 async function ringDriver(v, title, body) {
   stopRinging(v.id);
@@ -375,7 +381,7 @@ async function ringDriver(v, title, body) {
   return { page_open: onlineCount(v.id) > 0, push };
 }
 // Aviso informativo (sem repetir e sem pedir resposta).
-const infoPush = (v, title, body) => pushToVisit(v, { title, body, url: '/m/', tag: `info-${v.id}`, token: v.driver_token, kind: 'info' }).catch(() => {});
+const infoPush = (v, title, body) => pushToVisit(v, { title, body, url: '/m/?n=1', tag: `info-${v.id}`, token: v.driver_token, kind: 'info' }).catch(() => {});
 
 app.post('/api/visits/:id/call', staff, async (req, res) => {
   const v = loadActive(req, res, ['AGUARDANDO', 'CHAMADO', 'CONFIRMADO']); if (!v) return;
@@ -387,7 +393,8 @@ app.post('/api/visits/:id/call', staff, async (req, res) => {
     .run(dock.name, now(), req.op, now(), v.id);
   markSeen(v.id, req.op);
   const nv = getVisit(v.id);
-  const delivery = await ringDriver(nv, `CHAMADA: ${dock.name}`, `Compareça à ${dock.name}. Caminhão ${nv.plate}. Autorização ${nv.auth_code}.`);
+  const ct = callTexts(nv, false);
+  const delivery = await ringDriver(nv, ct.title, ct.body);
   logEvent(v.id, nv.call_count > 1 ? 'RECHAMADA' : 'CHAMADA', { doca: dock.name, ...delivery }, req.op);
   broadcastVisit(v.id);
   res.json({ visit: staffView(getVisit(v.id)), delivery });
@@ -398,7 +405,8 @@ app.post('/api/visits/:id/recall', staff, async (req, res) => {
   db.prepare(`UPDATE visits SET status = 'CHAMADO', confirmed_at = NULL, call_count = call_count + 1 WHERE id = ?`).run(v.id);
   markSeen(v.id, req.op);
   const nv = getVisit(v.id);
-  const delivery = await ringDriver(nv, `CHAMADA REPETIDA: ${nv.dock}`, `Compareça à ${nv.dock}. Caminhão ${nv.plate}.`);
+  const ct = callTexts(nv, true);
+  const delivery = await ringDriver(nv, ct.title, ct.body);
   logEvent(v.id, 'RECHAMADA', { doca: nv.dock, ...delivery }, req.op);
   broadcastVisit(v.id);
   res.json({ visit: staffView(getVisit(v.id)), delivery });
@@ -546,7 +554,7 @@ app.post('/api/visits/:id/test-push', staff, async (req, res) => {
 });
 const sendTest = (v) => pushToVisit(v, {
   title: 'TESTE: aviso funcionando ✔', body: 'É assim que a chamada vai chegar, mesmo com o celular bloqueado.',
-  url: '/m/', tag: `test-${v.id}`, token: v.driver_token, kind: 'test',
+  url: '/m/?n=1', tag: `test-${v.id}`, token: v.driver_token, kind: 'test',
 }).catch(() => {});
 
 app.post('/api/visits/:id/team-ack', staff, (req, res) => {
@@ -643,7 +651,7 @@ app.post('/api/driver/ack', (req, res) => {
   }
   stopRinging(v.id);
   // Troca a notificação insistente por uma confirmação silenciosa (some do bloqueio de tela).
-  pushToVisit(v, { title: 'Confirmado ✔', body: 'A equipe já sabe que você está indo.', url: '/m/', tag: `call-${v.id}`, quiet: true }).catch(() => {});
+  pushToVisit(v, { title: 'Confirmado ✔', body: 'A equipe já sabe que você está indo.', url: '/m/?n=1', tag: `call-${v.id}`, quiet: true }).catch(() => {});
   broadcastVisit(v.id);
   emit((c) => c.kind === 'staff', 'ack', { id: v.id, driver_name: v.driver_name, dock: v.dock, plate: v.plate });
   res.json(driverView(getVisit(v.id)));

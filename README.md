@@ -7,6 +7,8 @@ Depois a equipe marca **Encostou na doca**, pode **chamar de novo ou mandar reca
 assinar canhoto, documentos, mudar de doca, texto livre) e pode **passar o caminhão para a outra equipe**
 (descarregou no Recebimento → carrega na Expedição). Por fim, **Liberar saída**, e a **portaria registra a saída**.
 
+**A chamada diz o que fazer:** Recebimento = **DESCARREGAR NA DOCA 04**; Expedição = **CARREGAR NA DOCA 07**.
+
 **Sem custo por mensagem** (não usa SMS). O plano B, quando o celular não recebe, é o **WhatsApp/telefone com um clique**.
 
 ## O que mudou na v3
@@ -43,7 +45,10 @@ Siga o **GUIA-NUVEM.md** (GitHub + Render + Neon, todos gratuitos).
 
 **Portaria:**
 1. Escolha RECEBIMENTO ou EXPEDIÇÃO e preencha os dados. Se o caminhão vai fazer as duas operações, marque **Operação dupla**.
-2. Clique em **LANÇAR NA FILA E GERAR QR**. O motorista lê o QR, toca em **ATIVAR ALERTAS** e depois em **PERMITIR**.
+2. Clique em **LANÇAR NA FILA E GERAR QR**. A janela mostra o que o motorista digita no **cartaz**: placa + final do celular, por exemplo `ABC1D23` + `4321`.
+   Ele lê o **cartaz fixo** (ou o QR individual), confere o **nome e a placa dele** na tela, toca em **ATIVAR ALERTAS** e depois em **PERMITIR**.
+   - Cada celular fica ligado a **uma única placa**. A chamada vai só para o celular daquela placa, mesmo com vários caminhões aguardando.
+   - Se o celular já tinha um acesso antigo salvo, a tela pergunta **"É você?"** antes de mostrar qualquer coisa.
 3. Na janela do QR, espere ficar ✔ em **página aberta** e **notificações permitidas**. Peça para ele **bloquear o celular** e clique em **TESTAR AVISO NO CELULAR**.
    Quando aparecer **TUDO CERTO**, libere o motorista para o pátio.
    - Sem câmera: **Enviar link por WhatsApp**.
